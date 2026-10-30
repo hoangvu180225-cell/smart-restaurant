@@ -235,6 +235,14 @@ Form đặt bàn dạng đường gạch chân tối giản (Border-bottom minim
 Thiết kế tối ưu cho điện thoại thông minh, thao tác 1 tay (Thumb-zone), hiển thị bàn đang ăn và quyền hủy món nhanh:
 ![Mobile Waiter POS](./docs/Mobile_Waiter_POS.png)
 
+#### 6. Phân Hệ Quản Lý — Dashboard Tổng Quan Ca Trực (Executive Dashboard)
+Bảng điều khiển quản lý ca trực trực quan: theo dõi doanh thu theo ngày/tuần/tháng tích hợp biểu đồ cột, tỉ lệ đóng góp doanh thu giữa các phòng dạng biểu đồ tròn, công suất bàn, lượng khách theo khung giờ & ngày trong tuần, cùng hàng chờ đặt bàn và BXH món bán chạy đặt song song:
+![Dashboard Tổng Quan Ca Trực](./docs/Dashboard.png)
+
+#### 7. Phân Hệ Quản Lý — Sơ Đồ Mặt Bằng Kiến Trúc 2D (Spatial Floor Map)
+Sơ đồ mặt bằng kiến trúc thể hiện chính xác vị trí thực tế của từng bàn trong từng không gian ẩm thực (Sảnh Chính T1, Sân Vườn Terrace T2, Phòng Tiệc VIP) với 4 trạng thái màu trực quan và chế độ phác thảo:
+![Sơ Đồ Mặt Bằng Kiến Trúc 2D](./docs/Table_Map.png)
+
 ---
 
 ### 2.3 Các Luồng Tương Tác Cốt Lõi (Core Interaction Flows)
