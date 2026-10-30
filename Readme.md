@@ -8,7 +8,7 @@ Requirements define what SmartRestaurant must accomplish, the operational value 
 
 ### 1.1 Product Mind Map
 
-![SmartRestaurant Mindmap](./mindmap.png)
+![SmartRestaurant Mindmap](./docs/mindmap.png)
 
 ### 1.2 Use Cases
 
@@ -104,7 +104,6 @@ All V1 stories now have estimable target behavior:
 * **Dual-mode Booking:** Guests book instantly with basic contact details; registered members earn loyalty points upon checkout.
 * **Seating Dispatch & Confirmation:** Reservations enter `PENDING` status, allowing managers to reallocate or combine tables for large group hospitality before issuing final confirmation (`CONFIRMED`).
 * **Deposit Rules & Cancellations:** Small parties ($\le 4$ guests) book deposit-free; large parties or VIP suites require a holding deposit, fully deductible at checkout or refundable upon timely cancellation.
-* **Agile Staff Cancellations:** Any floor waiter can cancel an item immediately to accommodate dynamic guest requests, safeguarded by mandatory operational reasons and automated database audit triggers.
 
 The complete story-level review is maintained in [INVEST Requirements](docs/08-invest-requirements.md).
 
