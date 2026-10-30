@@ -1,0 +1,629 @@
+openapi: 3.0.3
+info:
+  title: SmartRestaurant RESTful API Specification
+  version: 1.0.0
+  description: |
+    Tài liệu đặc tả hợp đồng giao tiếp API (OpenAPI 3.0) của hệ thống **SmartRestaurant**.
+    Bao gồm các phân hệ: Đặt bàn trực tuyến 1-Page, POS di động gọi món cho bồi bàn,
+    Sơ đồ mặt bằng 2D, Đối soát cọc, Thu ngân và Nhật ký kiểm toán chống gian lận.
+  contact:
+    name: SmartRestaurant Architecture Team
+    email: dev@smartrestaurant.vn
+servers:
+  - url: http://localhost:5000/api/v1
+    description: Máy chủ thử nghiệm cục bộ (Local Development Server)
+  - url: https://api.smartrestaurant.vn/v1
+    description: Máy chủ môi trường sản xuất (Production Server)
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Sử dụng JSON Web Token (JWT) được cấp phát từ endpoint `/auth/login`.
+        Định dạng Header: `Authorization: Bearer <token>`
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: "Dữ liệu đầu vào không hợp lệ hoặc không có quyền truy cập"
+        code:
+          type: string
+          example: "VALIDATION_ERROR"
+        timestamp:
+          type: string
+          format: date-time
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        username:
+          type: string
+          example: "quanly_ca1"
+        full_name:
+          type: string
+          example: "Trần Văn Quản Lý"
+        phone:
+          type: string
+          example: "0901234567"
+        role:
+          type: string
+          enum: [ADMIN, MANAGER, CASHIER, WAITER, CUSTOMER]
+          example: "MANAGER"
+        loyalty_points:
+          type: integer
+          example: 120
+
+    Table:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        area_id:
+          type: integer
+          example: 1
+        table_number:
+          type: string
+          example: "T1-Bàn 1"
+        capacity:
+          type: integer
+          example: 4
+        status:
+          type: string
+          enum: [AVAILABLE, RESERVED, OCCUPIED, DIRTY]
+          example: "AVAILABLE"
+        coord_x:
+          type: integer
+          example: 120
+        coord_y:
+          type: integer
+          example: 240
+
+    Reservation:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 101
+        booking_code:
+          type: string
+          example: "BK-8921"
+        customer_name:
+          type: string
+          example: "Anh Trần Vũ Hoàng"
+        customer_phone:
+          type: string
+          example: "0912345888"
+        guest_count:
+          type: integer
+          example: 8
+        area_id:
+          type: integer
+          example: 3
+        assigned_table_id:
+          type: integer
+          nullable: true
+          example: 12
+        reservation_time:
+          type: string
+          format: date-time
+          example: "2026-10-30T19:30:00Z"
+        deposit_amount:
+          type: number
+          format: double
+          example: 500000.00
+        status:
+          type: string
+          enum: [PENDING, CONFIRMED, SEATED, CANCELLED]
+          example: "PENDING"
+        note:
+          type: string
+          example: "Yêu cầu phòng VIP tiệc gia đình, cọc 500k"
+
+    OrderItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 45
+        menu_item_id:
+          type: integer
+          example: 10
+        item_name:
+          type: string
+          example: "Thăn Bò Wagyu A5 Nướng Đá Núi Lửa"
+        quantity:
+          type: integer
+          example: 2
+        unit_price:
+          type: number
+          format: double
+          example: 850000.00
+        taste_notes:
+          type: string
+          example: "Medium rare, ít muối"
+        status:
+          type: string
+          enum: [WAITING, COOKING, SERVED, CANCELLED]
+          example: "WAITING"
+        cancel_reason:
+          type: string
+          nullable: true
+          example: "Khách đổi ý sang món hải sản"
+
+    InvoicePreview:
+      type: object
+      properties:
+        order_id:
+          type: integer
+          example: 88
+        table_number:
+          type: string
+          example: "T1-Bàn 2"
+        subtotal_amount:
+          type: number
+          format: double
+          example: 2450000.00
+        vip_surcharge:
+          type: number
+          format: double
+          example: 245000.00
+        deposit_deducted:
+          type: number
+          format: double
+          example: 500000.00
+        tax_vat:
+          type: number
+          format: double
+          example: 175600.00
+        final_amount:
+          type: number
+          format: double
+          example: 2370600.00
+
+paths:
+  # =========================================================================
+  # 1. AUTHENTICATION & SESSION
+  # =========================================================================
+  /auth/login:
+    post:
+      summary: Đăng nhập hệ thống & Cấp phát JWT
+      description: Xác thực tài khoản nhân viên hoặc khách hội viên; trả về Access Token và quyền hạn vai trò.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                  example: "quanly_ca1"
+                password:
+                  type: string
+                  example: "secret123"
+      responses:
+        '200':
+          description: Đăng nhập thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Sai tên đăng nhập hoặc mật khẩu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/me:
+    get:
+      summary: Lấy hồ sơ tài khoản hiện tại
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Thông tin người dùng hiện tại
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  # =========================================================================
+  # 2. FLOOR & TABLE MANAGEMENT
+  # =========================================================================
+  /areas:
+    get:
+      summary: Danh sách khu vực & phòng ăn
+      description: Trả về cây dữ liệu các phòng (Sảnh chính, Sân vườn, VIP) kèm danh sách bàn bên trong.
+      responses:
+        '200':
+          description: Danh sách khu vực
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string
+                      example: "Sảnh Chính — Tầng 1"
+                    is_vip:
+                      type: boolean
+                    surcharge_rate:
+                      type: number
+                      example: 0.00
+
+  /tables:
+    get:
+      summary: Lấy danh sách bàn & trạng thái 4 màu thời gian thực
+      description: Dữ liệu phục vụ vẽ sơ đồ mặt bằng 2D (AVAILABLE, RESERVED, OCCUPIED, DIRTY).
+      parameters:
+        - name: area_id
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Mảng trạng thái bàn
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Table'
+
+  /tables/{id}/status:
+    patch:
+      summary: Cập nhật thủ công trạng thái bàn
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [AVAILABLE, RESERVED, OCCUPIED, DIRTY]
+      responses:
+        '200':
+          description: Cập nhật trạng thái bàn thành công
+
+  /tables/{id}/clean:
+    post:
+      summary: Xác nhận đã dọn xong bàn (DIRTY -> AVAILABLE)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Bàn đã chuyển sang trạng thái trống sẵn sàng đón khách mới
+
+  # =========================================================================
+  # 3. RESERVATIONS (CUSTOMER PORTAL & DISPATCH)
+  # =========================================================================
+  /reservations:
+    post:
+      summary: Khách gửi phiếu đặt bàn (Booking Ticket)
+      description: Tiếp nhận thông tin đoàn khách. Nếu đoàn $\ge 6$ người hoặc phòng VIP, tự động áp mức cọc và tạo trạng thái PENDING.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customer_name, customer_phone, guest_count, reservation_time]
+              properties:
+                customer_name:
+                  type: string
+                  example: "Anh Trần Vũ Hoàng"
+                customer_phone:
+                  type: string
+                  example: "0912345888"
+                customer_email:
+                  type: string
+                  example: "hoangtv@gmail.com"
+                guest_count:
+                  type: integer
+                  example: 8
+                area_id:
+                  type: integer
+                  example: 3
+                reservation_time:
+                  type: string
+                  format: date-time
+                  example: "2026-10-30T19:30:00Z"
+                preorders:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      menu_item_id:
+                        type: integer
+                        example: 1
+                      quantity:
+                        type: integer
+                        example: 2
+                note:
+                  type: string
+                  example: "Tiệc sinh nhật cần hoa tươi bàn VIP"
+      responses:
+        '201':
+          description: Đã xuất phiếu đặt bàn thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reservation'
+
+  /reservations/{bookingCode}:
+    get:
+      summary: Tra cứu phiếu đặt bàn theo mã booking
+      parameters:
+        - name: bookingCode
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "BK-8921"
+      responses:
+        '200':
+          description: Chi tiết đơn đặt bàn
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reservation'
+
+  /reservations/{id}/confirm:
+    patch:
+      summary: Quản lý duyệt đặt bàn & Gán bàn chính thức
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assigned_table_id]
+              properties:
+                assigned_table_id:
+                  type: integer
+                  example: 5
+      responses:
+        '200':
+          description: Đơn đặt bàn đã chuyển sang CONFIRMED và bàn gán chuyển RESERVED
+
+  # =========================================================================
+  # 4. MOBILE POS & ORDERING
+  # =========================================================================
+  /orders/open:
+    post:
+      summary: Bồi bàn mở bàn phục vụ tại chỗ
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [table_id]
+              properties:
+                table_id:
+                  type: integer
+                  example: 2
+                reservation_id:
+                  type: integer
+                  nullable: true
+      responses:
+        '201':
+          description: Đã mở phiên phục vụ (Bàn chuyển sang OCCUPIED)
+
+  /orders/{orderId}/items:
+    post:
+      summary: Thêm món ăn vào bàn (Bắn order xuống bếp)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required: [menu_item_id, quantity]
+                    properties:
+                      menu_item_id:
+                        type: integer
+                        example: 3
+                      quantity:
+                        type: integer
+                        example: 2
+                      taste_notes:
+                        type: string
+                        example: "Không hành, ít cay"
+      responses:
+        '200':
+          description: Đã ghi nhận món thành công
+
+  /orders/items/{itemId}/cancel:
+    patch:
+      summary: Nhân viên hủy món nhanh (Kèm lý do bắt buộc & Tự kích hoạt Trigger)
+      description: |
+        Phân quyền linh hoạt cho nhân viên phục vụ: có thể hủy món ngay khi khách đổi ý.
+        Bắt buộc truyền trường `cancel_reason`. Trigger PostgreSQL sẽ tự động ghi nhật ký vào `audit_logs`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cancel_reason]
+              properties:
+                cancel_reason:
+                  type: string
+                  example: "Khách đổi ý muốn chuyển sang lẩu hải sản"
+      responses:
+        '200':
+          description: Hủy món thành công và đã ghi vết kiểm toán
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  audit_recorded:
+                    type: boolean
+                    example: true
+
+  # =========================================================================
+  # 5. BILLING & CHECKOUT
+  # =========================================================================
+  /invoices/preview/{orderId}:
+    get:
+      summary: Xem trước Bảng kê thanh toán (Pre-bill)
+      description: Tự động cộng tiền món, phụ thu VIP, trừ 100% tiền cọc đã nộp và tính 8% VAT.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Chi tiết bảng kê tạm tính
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoicePreview'
+
+  /invoices/checkout:
+    post:
+      summary: Thu ngân chốt thanh toán & Xuất hóa đơn
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [order_id, payment_method]
+              properties:
+                order_id:
+                  type: integer
+                  example: 88
+                payment_method:
+                  type: string
+                  enum: [CASH, CREDIT_CARD, VIETQR]
+                  example: "VIETQR"
+      responses:
+        '200':
+          description: Thanh toán hoàn tất, bàn chuyển sang DIRTY để chờ dọn
+
+  # =========================================================================
+  # 6. DASHBOARD & AUDIT LOGS
+  # =========================================================================
+  /dashboard/kpi:
+    get:
+      summary: Lấy dữ liệu KPI tổng quan ca trực
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [day, week, month]
+            default: day
+      responses:
+        '200':
+          description: Số liệu doanh thu, công suất lấp đầy và món bán chạy
+
+  /audit/logs:
+    get:
+      summary: Tra cứu nhật ký kiểm toán bất biến
+      description: Danh sách các sự kiện nhạy cảm (Hủy món, Đổi bàn, Sửa bill) do Database Trigger sinh ra.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: action_type
+          in: query
+          schema:
+            type: string
+            example: "CANCEL_ITEM"
+        - name: from_date
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Danh sách bản ghi kiểm toán

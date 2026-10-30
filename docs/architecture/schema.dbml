@@ -1,0 +1,212 @@
+// =============================================================================
+// SMARTRESTAURANT — DATABASE MARKUP LANGUAGE (DBML v2)
+// For use with dbdiagram.io, dbdocs.io, and schema visualization tools
+// =============================================================================
+
+Project SmartRestaurant {
+  database_type: 'PostgreSQL'
+  Note: 'Hệ thống Quản lý Đặt bàn & POS Di Động — Sơ đồ Cơ sở Dữ liệu Quan hệ'
+}
+
+// -----------------------------------------------------------------------------
+// ENUMS
+// -----------------------------------------------------------------------------
+enum user_role {
+  ADMIN
+  MANAGER
+  CASHIER
+  WAITER
+  CUSTOMER
+}
+
+enum table_status {
+  AVAILABLE [note: 'Xanh lá — Bàn trống sẵn sàng đón khách']
+  RESERVED  [note: 'Cam — Đã có lịch đặt trước / Đã cọc']
+  OCCUPIED  [note: 'Đỏ — Bàn đang phục vụ thực khách']
+  DIRTY     [note: 'Xám — Đang chờ nhân viên dọn dẹp']
+}
+
+enum reservation_status {
+  PENDING   [note: 'Chờ duyệt / Chờ quản lý xếp bàn']
+  CONFIRMED [note: 'Đã xác nhận chỗ & gán bàn']
+  SEATED    [note: 'Khách đã đến nơi & mở bàn']
+  CANCELLED [note: 'Đã hủy theo chính sách hoàn cọc']
+}
+
+enum order_status {
+  SERVING   [note: 'Đang mở phục vụ']
+  PAID      [note: 'Đã thanh toán hóa đơn']
+  CANCELLED [note: 'Hủy phiên phục vụ']
+}
+
+enum item_status {
+  WAITING   [note: 'Chờ chuyển bếp']
+  COOKING   [note: 'Bếp đang chế biến']
+  SERVED    [note: 'Đã mang ra bàn']
+  CANCELLED [note: 'Đã hủy món (Bắt buộc lý do + Trigger kiểm toán)']
+}
+
+// -----------------------------------------------------------------------------
+// TABLES
+// -----------------------------------------------------------------------------
+Table users {
+  id bigserial [pk, increment]
+  username varchar(50) [unique, not null]
+  password_hash varchar(255) [not null]
+  full_name varchar(100) [not null]
+  phone varchar(20) [unique, not null]
+  role user_role [not null, default: 'CUSTOMER']
+  loyalty_points int [default: 0, note: 'Điểm tích lũy cho hội viên']
+  is_active boolean [default: true]
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  Note: 'Tài khoản người dùng: Quản trị viên, Quản lý, Thu ngân, Bồi bàn và Thực khách hội viên'
+}
+
+Table branches {
+  id bigserial [pk, increment]
+  name varchar(100) [not null]
+  address text [not null]
+  phone varchar(20) [not null]
+  is_active boolean [default: true]
+
+  Note: 'Chi nhánh nhà hàng'
+}
+
+Table areas {
+  id bigserial [pk, increment]
+  branch_id bigint [not null, ref: > branches.id]
+  name varchar(100) [not null, note: 'Sảnh Chính, Sân Vườn Terrace, Phòng Tiệc VIP']
+  is_vip boolean [default: false]
+  surcharge_rate numeric(5,2) [default: 0.00, note: 'Phụ thu phòng VIP tính theo % (ví dụ 10.00%)']
+  is_active boolean [default: true]
+
+  Note: 'Khu vực / Không gian ẩm thực của nhà hàng'
+}
+
+Table tables {
+  id bigserial [pk, increment]
+  area_id bigint [not null, ref: > areas.id]
+  table_number varchar(20) [not null, note: 'T1-Bàn 1, VIP-Phòng 1']
+  capacity int [not null, note: 'Sức chứa tiêu chuẩn ghế ngồi']
+  coord_x int [default: 0, note: 'Tọa độ X trên sơ đồ 2D']
+  coord_y int [default: 0, note: 'Tọa độ Y trên sơ đồ 2D']
+  status table_status [default: 'AVAILABLE', note: 'Máy trạng thái 4 màu']
+  is_active boolean [default: true]
+
+  indexes {
+    (area_id, table_number) [unique]
+  }
+
+  Note: 'Danh mục bàn ăn và tọa độ định vị trên sơ đồ kiến trúc 2D'
+}
+
+Table menu_categories {
+  id bigserial [pk, increment]
+  name varchar(100) [unique, not null]
+  display_order int [default: 0]
+
+  Note: 'Phân loại thực đơn: Khai vị, Món chính, Tráng miệng, Rượu vang'
+}
+
+Table menu_items {
+  id bigserial [pk, increment]
+  category_id bigint [not null, ref: > menu_categories.id]
+  name varchar(150) [not null]
+  price numeric(12,2) [not null]
+  cost_price numeric(12,2) [default: 0]
+  unit varchar(20) [default: 'Phần']
+  image_url text
+  description text
+  is_available boolean [default: true]
+  deleted_at timestamptz [note: 'Soft-delete bảo toàn lịch sử hóa đơn']
+
+  Note: 'Danh mục món ăn, giá niêm yết và trạng thái còn/hết hàng'
+}
+
+Table reservations {
+  id bigserial [pk, increment]
+  booking_code varchar(20) [unique, not null, note: 'BK-8921']
+  customer_id bigint [null, ref: > users.id, note: 'Null nếu đặt vãng lai']
+  customer_name varchar(100) [not null]
+  customer_phone varchar(20) [not null]
+  customer_email varchar(100)
+  guest_count int [not null, note: 'Số lượng thực khách trong đoàn']
+  area_id bigint [ref: > areas.id]
+  assigned_table_id bigint [null, ref: > tables.id, note: 'Null khi PENDING, gán khi CONFIRMED']
+  reservation_time timestamptz [not null]
+  deposit_amount numeric(12,2) [default: 0.00, note: 'Tiền cọc giữ chỗ (Bắt buộc nếu >=6 khách hoặc VIP)']
+  status reservation_status [default: 'PENDING']
+  note text
+  created_at timestamptz [default: `now()`]
+
+  Note: 'Phiếu đặt bàn trực tuyến: xử lý điều phối và quản lý đặt cọc'
+}
+
+Table reservation_preorders {
+  id bigserial [pk, increment]
+  reservation_id bigint [not null, ref: > reservations.id]
+  menu_item_id bigint [not null, ref: > menu_items.id]
+  quantity int [not null]
+
+  Note: 'Món ăn thực khách chọn gọi trước khi đến nhà hàng'
+}
+
+Table orders {
+  id bigserial [pk, increment]
+  table_id bigint [not null, ref: > tables.id]
+  waiter_id bigint [not null, ref: > users.id, note: 'Nhân viên mở bàn phục vụ']
+  reservation_id bigint [null, ref: > reservations.id]
+  status order_status [default: 'SERVING']
+  opened_at timestamptz [default: `now()`]
+  closed_at timestamptz [null]
+
+  Note: 'Phiên gọi món tại bàn của nhân viên phục vụ qua smartphone'
+}
+
+Table order_items {
+  id bigserial [pk, increment]
+  order_id bigint [not null, ref: > orders.id]
+  menu_item_id bigint [not null, ref: > menu_items.id]
+  quantity int [not null]
+  price numeric(12,2) [not null]
+  taste_notes text [note: 'Khẩu vị gửi bếp: không hành, ít cay']
+  status item_status [default: 'WAITING']
+  cancel_reason text [null, note: 'Lý do bắt buộc khi nhân viên hủy món']
+  cancelled_by bigint [null, ref: > users.id]
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  Note: 'Chi tiết từng món ăn trong phiên phục vụ; gắn Trigger kiểm toán khi hủy món'
+}
+
+Table invoices {
+  id bigserial [pk, increment]
+  order_id bigint [unique, not null, ref: - orders.id]
+  cashier_id bigint [not null, ref: > users.id]
+  subtotal_amount numeric(12,2) [not null, note: 'Tổng tiền món']
+  vip_surcharge numeric(12,2) [default: 0.00, note: 'Phụ thu phòng VIP']
+  deposit_deducted numeric(12,2) [default: 0.00, note: 'Tiền cọc đã cấn trừ 100%']
+  discount_amount numeric(12,2) [default: 0.00]
+  tax_vat numeric(12,2) [default: 0.00, note: 'Thuế VAT 8%']
+  final_amount numeric(12,2) [not null, note: 'Tổng tiền thực thu cuối cùng']
+  payment_method varchar(50) [default: 'CASH', note: 'CASH, CREDIT_CARD, VIETQR']
+  paid_at timestamptz [default: `now()`]
+
+  Note: 'Hóa đơn thanh toán và đối soát cọc của thu ngân'
+}
+
+Table audit_logs {
+  id bigserial [pk, increment]
+  table_name varchar(50) [not null, note: 'order_items, orders, reservations, invoices']
+  record_id bigint [not null]
+  action_type varchar(20) [not null, note: 'CANCEL_ITEM, TRANSFER_TABLE, REFUND_DEPOSIT']
+  performed_by bigint [null, ref: > users.id]
+  reason text [note: 'Lý do nghiệp vụ bắt buộc']
+  old_data jsonb [note: 'Trạng thái dữ liệu trước khi thay đổi']
+  new_data jsonb [note: 'Trạng thái dữ liệu sau khi thay đổi']
+  created_at timestamptz [default: `now()`]
+
+  Note: 'Bảng nhật ký kiểm toán bất biến (Chỉ cho phép INSERT/SELECT) phục vụ chống gian lận'
+}
