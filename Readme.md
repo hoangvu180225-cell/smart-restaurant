@@ -136,68 +136,57 @@ Hệ thống thiết lập ranh giới quyền hạn chặt chẽ giữa 4 vai t
 
 ## 2. Kiến Trúc Thông Tin & Thiết Kế Giao Diện UI/UX
 
-Kiến trúc thông tin (Information Architecture - IA) tổ chức các tuyến điều hướng, phân cấp vận hành và luồng màn hình trên 3 môi trường tương tác độc lập: Cổng đặt bàn cho khách, Ứng dụng POS di động cho nhân viên phục vụ, và Bảng điều khiển quản lý tập trung cho quản lý/thu ngân.
+Kiến trúc thông tin (Information Architecture - IA) của SmartRestaurant tổ chức trải nghiệm người dùng theo 3 phân hệ chuyên biệt: **Cổng Khách Hàng (Website 1-Page Đương Đại)**, **POS Di Động Phục Vụ (Smartphone 1 Tay)**, và **Bảng Điều Khiển Quản Lý & Thu Ngân (Desktop/Tablet Console)**.
 
-### 2.1 Kiến Trúc Thông Tin (Sitemap & Phân Cấp Màn Hình)
+---
+
+### 2.1 Kiến Trúc Thông Tin (Sitemap & Luồng Trải Nghiệm 1-Page)
+
+Phân hệ Khách hàng được thiết kế theo trải nghiệm **1-Page Cuộn Mượt Mà (Single-Page Smooth Scroll — Cảm hứng từ Khuê Restaurant)**, tích hợp toàn bộ hành trình ẩm thực từ Giới thiệu $\rightarrow$ Khám phá Thực đơn $\rightarrow$ Không gian phòng $\rightarrow$ Phiếu Đặt Bàn (Booking Ticket).
 
 ```mermaid
 graph TD
     Root["Hệ Thống SmartRestaurant"]
 
-    %% CỔNG KHÁCH HÀNG
-    subgraph CP["1. Cổng Khách Hàng (Web / Mobile Browser)"]
-        CP_Home["Trang chủ & Không gian nhà hàng"]
-        CP_Auth["Đăng nhập / Đăng ký Hội viên (Tùy chọn)"]
-        CP_Menu["Thực đơn công khai<br/><i>Danh mục, Giá bán, Nhãn ăn kiêng</i>"]
-        CP_Booking["Quy trình Đặt bàn"]
-        CP_Slot["Chọn Ngày, Khung giờ & Số lượng khách<br/><i>Giới hạn thời gian dùng bữa</i>"]
-        CP_Map["Chọn Khu vực mong muốn<br/><i>Phòng VIP, Sảnh chính, Sân vườn</i>"]
-        CP_Deposit["Thanh toán Tiền cọc linh hoạt<br/><i>Áp dụng nhóm đông (>= 6 người) hoặc VIP</i>"]
-        CP_Confirm["Xác nhận Đơn đặt bàn (Trạng thái: PENDING)"]
-        CP_Lookup["Tra cứu Đơn & Tự hủy đặt bàn"]
-        
-        CP_Home --> CP_Auth
-        CP_Home --> CP_Menu
-        CP_Home --> CP_Booking
-        CP_Booking --> CP_Slot --> CP_Map --> CP_Deposit --> CP_Confirm
-        CP_Home --> CP_Lookup
+    %% CỔNG KHÁCH HÀNG 1-PAGE
+    subgraph CP["1. Cổng Khách Hàng (Website 1-Page Đương Đại)"]
+        direction TB
+        CP_Nav["Header Cố Định: Logo · Menu · Nút 'ĐẶT BÀN' (Cuộn nhanh)"]
+        CP_Hero["1. Khởi Đầu & Giới Thiệu (Hero, Triết lý ẩm thực)"]
+        CP_Menu["2. Thực Đơn Tinh Tuyển (Set Menu & À la carte)"]
+        CP_Spaces["3. Không Gian Ẩm Thực (Sảnh chính, Sân vườn, Phòng VIP)"]
+        CP_Ticket["4. Phiếu Đặt Bàn (Form tối giản gạch chân & Xuất vé PENDING)"]
+
+        CP_Nav -.-> CP_Ticket
+        CP_Hero --> CP_Menu --> CP_Spaces --> CP_Ticket
     end
 
     %% POS DI ĐỘNG PHỤC VỤ
     subgraph WP["2. Ứng Dụng POS Phục Vụ (Smartphone Web App)"]
-        WP_Auth["Đăng nhập mã PIN / Mật khẩu nhân viên"]
-        WP_Floor["Sơ đồ lưới bàn di động<br/><i>Chỉ báo 4 màu trạng thái thời gian thực</i>"]
-        WP_Table["Phiếu gọi món của bàn đang phục vụ"]
-        WP_Catalog["Danh mục món & Tìm kiếm nhanh"]
-        WP_ItemModal["Tăng giảm số lượng & Ghi chú khẩu vị gửi bếp"]
-        WP_Cancel["Hủy món ăn linh hoạt<br/><i>Bắt buộc chọn lý do + Tự động ghi Log</i>"]
-        WP_Actions["Điều phối tại bàn<br/><i>Chuyển bàn · Yêu cầu dọn dẹp</i>"]
+        WP_Auth["Đăng nhập mã PIN nhân viên"]
+        WP_Floor["Sơ đồ lưới bàn di động (Trạng thái màu thời gian thực)"]
+        WP_Table["Phiếu gọi món bàn đang phục vụ"]
+        WP_Thumb["Thao tác 1 tay: Tìm món, tăng giảm số lượng & ghi chú bếp"]
+        WP_Cancel["Hủy món ăn linh hoạt (Chọn lý do bắt buộc + Tự ghi log kiểm toán)"]
 
-        WP_Auth --> WP_Floor
-        WP_Floor --> WP_Table
-        WP_Table --> WP_Catalog --> WP_ItemModal
+        WP_Auth --> WP_Floor --> WP_Table --> WP_Thumb
         WP_Table --> WP_Cancel
-        WP_Table --> WP_Actions
     end
 
     %% BẢNG ĐIỀU KHIỂN QUẢN LÝ / THU NGÂN
     subgraph MD["3. Bảng Điều Khiển Quản Lý & Thu Ngân (Tablet / Desktop)"]
         MD_Auth["Đăng nhập Quản lý & Xác thực JWT"]
-        MD_Kpi["Dashboard Ca trực thời gian thực<br/><i>Doanh thu, Tỷ lệ xoay bàn, Công suất lấp đầy</i>"]
-        MD_Floor["Sơ đồ mặt bằng 2D trực quan<br/><i>Kéo thả bố trí bàn & Quản lý bàn chờ dọn</i>"]
-        MD_Reservations["Điều phối Đặt bàn & Ghép chỗ<br/><i>Duyệt đơn PENDING, Gán bàn tối ưu, Chốt CONFIRMED</i>"]
-        MD_Menu["Quản trị Menu, Phụ thu VIP & Quy tắc cọc"]
-        MD_Checkout["Quầy Thu ngân & Thanh toán<br/><i>Pre-bill, Cấn trừ cọc, Điểm thưởng, In hóa đơn nhiệt PDF</i>"]
+        MD_Kpi["Dashboard Ca trực thời gian thực (Doanh thu, Công suất bàn)"]
+        MD_Floor["Sơ đồ mặt bằng 2D (Kéo thả bố trí bàn & Quản lý bàn dọn)"]
+        MD_Dispatch["Điều phối Đặt bàn (Duyệt đơn PENDING, Gán/Ghép bàn)"]
+        MD_Billing["Quầy Thu ngân (Pre-bill, Cấn trừ cọc, In hóa đơn nhiệt)"]
         MD_Audit["Bảng điều khiển Nhật ký kiểm toán chống gian lận"]
-        MD_Users["Quản lý Tài khoản, Phân quyền & Hội viên"]
 
         MD_Auth --> MD_Kpi
         MD_Kpi --> MD_Floor
-        MD_Kpi --> MD_Reservations
-        MD_Kpi --> MD_Menu
-        MD_Kpi --> MD_Checkout
+        MD_Kpi --> MD_Dispatch
+        MD_Kpi --> MD_Billing
         MD_Kpi --> MD_Audit
-        MD_Kpi --> MD_Users
     end
 
     Root --> CP
@@ -207,43 +196,62 @@ graph TD
 
 #### Bảng Ánh Xạ Tuyến Đường & Màn Hình Hệ Thống
 
-| Định Danh View | Đường Dẫn Tuyến | Vai Trò Hướng Đến | Nhiệm Vụ Nghiệp Vụ Trọng Tâm |
+| Định Danh View | Đường Dẫn Tuyến | Phân Hệ & Thiết Bị | Nhiệm Vụ Nghiệp Vụ Trọng Tâm |
 | :--- | :--- | :--- | :--- |
-| `VIEW-CP-01` | `/` | Khách vãng lai | Giới thiệu nhà hàng, món ăn đặc trưng, lối vào đặt bàn và tra cứu. |
-| `VIEW-CP-02` | `/menu` | Khách vãng lai | Xem toàn bộ thực đơn kèm bộ lọc danh mục và mô tả chi tiết món ăn. |
-| `VIEW-CP-03` | `/reserve` | Khách vãng lai / Hội viên | Luồng đặt bàn từng bước (Đặt nhanh không cần tài khoản, chọn cọc nếu $\ge 6$ khách hoặc phòng VIP). |
-| `VIEW-CP-04` | `/lookup` | Khách vãng lai / Hội viên | Tra cứu đơn bằng SĐT/Mã đơn kèm chức năng tự hủy và theo dõi hoàn cọc. |
-| `VIEW-WP-01` | `/pos/tables` | Phục vụ bàn | Lưới danh sách bàn tối ưu cho điện thoại, hiển thị màu trạng thái và thời gian chờ dọn. |
-| `VIEW-WP-02` | `/pos/order/:tableId` | Phục vụ bàn | Phiếu gọi món bàn đang ăn: thêm món, ghi chú gửi bếp, hủy món nhanh kèm lý do. |
-| `VIEW-MD-01` | `/admin/dashboard` | Quản lý / Admin | Báo cáo KPI điều hành: doanh thu trong ngày, tỷ lệ kín bàn, món ăn bán chạy nhất. |
-| `VIEW-MD-02` | `/admin/floor-map` | Quản lý / Admin | Quan sát mặt bằng không gian 2D, gộp bàn/chuyển bàn và ghi đè trạng thái. |
-| `VIEW-MD-03` | `/admin/reservations`| Quản lý / Admin | Bàn điều phối đặt bàn: duyệt các đơn `PENDING`, ghép bàn đón đoàn đông, xác nhận đơn. |
-| `VIEW-MD-04` | `/admin/menu` | Quản lý / Admin | Quản lý món ăn, bật tắt trạng thái hết món tức thì, cấu hình phụ thu VIP và ngưỡng cọc. |
-| `VIEW-MD-05` | `/admin/billing/:orderId`| Thu ngân / Quản lý | Xem bảng kê tạm tính, cấn trừ cọc, áp dụng điểm hội viên, xuất hóa đơn nhiệt PDF. |
-| `VIEW-MD-06` | `/admin/audit` | Quản lý / Admin | Tra cứu nhật ký kiểm toán bất biến: theo dõi lịch sử hủy món, chuyển bàn, chiết khấu. |
+| `VIEW-CP-01` | `/` *(Tất cả trong 1)* | Khách hàng (Web/Mobile) | Trang chủ trải nghiệm 1-page: Giới thiệu thương hiệu, Thực đơn, Không gian và Phiếu đặt bàn. |
+| `VIEW-CP-02` | `/#menu` | Khách hàng (Web/Mobile) | Phần xem thực đơn theo phong cách Editorial Grid với khung viền và đường kẻ chỉ tinh tế. |
+| `VIEW-CP-03` | `/#dat-ban` | Khách hàng (Web/Mobile) | Phiếu đặt bàn (Form gạch chân tối giản), tự động áp dụng quy tắc cọc cho đoàn $\ge 6$ người / phòng VIP. |
+| `VIEW-WP-01` | `/pos/tables` | Phục vụ (Smartphone) | Lưới trạng thái bàn di động tối ưu chạm, hiển thị thời gian dùng bữa và bàn chờ dọn. |
+| `VIEW-WP-02` | `/pos/order/:tableId` | Phục vụ (Smartphone) | Phiếu gọi món bàn đang ăn: thêm món, ghi chú gửi bếp, hủy món tức thì kèm lý do. |
+| `VIEW-MD-01` | `/admin/dashboard` | Quản lý (Desktop/Tablet) | Báo cáo KPI điều hành: doanh thu trong ngày, tỷ lệ kín bàn, đơn chờ duyệt, món bán chạy. |
+| `VIEW-MD-02` | `/admin/floor-map` | Quản lý (Desktop/Tablet) | Bản đồ không gian 2D: gộp bàn/chuyển bàn và ghi đè trạng thái. |
+| `VIEW-MD-03` | `/admin/reservations`| Quản lý (Desktop/Tablet) | Bàn điều phối đặt bàn: duyệt các đơn `PENDING`, ghép bàn đón đoàn đông, xác nhận đơn. |
+| `VIEW-MD-04` | `/admin/billing/:orderId`| Thu ngân (Desktop/Tablet)| Xem bảng kê tạm tính (Pre-bill), cấn trừ cọc, tích điểm hội viên, xuất hóa đơn nhiệt PDF. |
+| `VIEW-MD-05` | `/admin/audit` | Quản lý (Desktop/Tablet) | Tra cứu nhật ký kiểm toán bất biến: theo dõi lịch sử hủy món, chuyển bàn, chiết khấu. |
 
 ---
 
-### 2.2 Các Luồng Tương Tác Cốt Lõi (Core Interaction Flows)
+### 2.2 Wireframes & Thiết Kế Giao Diện Trực Quan (UI Showcase)
+
+Dưới đây là các bản thiết kế giao diện thực tế của hệ thống được lưu trữ trong thư mục `docs/`:
+
+#### 1. Cổng Khách Hàng — Trang Chủ & Giới Thiệu (Hero Section)
+Thiết kế thanh lịch với hình ảnh ruộng bậc thang cinematic, triết lý ẩm thực đương đại và nút bấm cuộn mượt xuống phiếu đặt bàn:
+![Trang Chủ & Giới Thiệu](./docs/Homepage.png)
+
+#### 2. Cổng Khách Hàng — Thực Đơn Tinh Tuyển (Editorial Menu Grid)
+Bố cục thực đơn tối giản với đường kẻ mảnh phân cách, khung hình thanh tao và giá niêm yết theo set:
+![Thực Đơn Tinh Tuyển](./docs/Menu.png)
+
+#### 3. Cổng Khách Hàng — Không Gian Nhà Hàng (Dining Spaces)
+Giới thiệu các không gian thưởng thức: Sảnh chính hoàng gia, Sân vườn terrace và Phòng tiệc VIP khép kín:
+![Không Gian Phòng](./docs/Room.png)
+
+#### 4. Cổng Khách Hàng — Phiếu Đặt Bàn (Reservation Ticket)
+Form đặt bàn dạng đường gạch chân tối giản (Border-bottom minimal), dễ điền và tự động tính cọc cho đoàn đông:
+![Phiếu Đặt Bàn Tại Đây](./docs/Book_Ticket.png)
+
+#### 5. Phân Hệ Phục Vụ — POS Gọi Món Di Động (Mobile Waiter POS)
+Thiết kế tối ưu cho điện thoại thông minh, thao tác 1 tay (Thumb-zone), hiển thị bàn đang ăn và quyền hủy món nhanh:
+![Mobile Waiter POS](./docs/Mobile_Waiter_POS.png)
+
+---
+
+### 2.3 Các Luồng Tương Tác Cốt Lõi (Core Interaction Flows)
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor C as Khách hàng (Vãng lai/Hội viên)
+    actor C as Khách hàng
     actor W as Nhân viên phục vụ
     actor M as Quản lý / Thu ngân
     participant UI as Giao diện Frontend
     participant API as Dịch vụ Backend
     participant DB as Cơ sở dữ liệu PostgreSQL
 
-    Note over C,DB: Luồng 1: Đặt bàn linh hoạt, Thanh toán cọc & Điều phối xếp chỗ
-    C->>UI: Chọn Ngày, Khu vực & Số lượng khách (Ví dụ: 8 người -> Yêu cầu cọc)
-    alt Đặt nhanh (Guest Checkout)
-        C->>UI: Nhập Tên, Số điện thoại và Ghi chú (Không cần mật khẩu)
-    else Khách Hội viên
-        C->>UI: Đăng nhập SĐT/Mật khẩu để tích điểm thưởng
-    end
-    C->>UI: Thanh toán tiền cọc (nếu áp dụng) & Gửi đơn đặt bàn
+    Note over C,DB: Luồng 1: Đặt bàn 1-Page, Cọc & Điều phối xếp chỗ
+    C->>UI: Điền Phiếu Đặt Bàn (Tên, SĐT, Ngày giờ, Đoàn 8 khách -> Yêu cầu cọc)
+    C->>UI: Bấm "ĐẶT NGAY" -> Xuất phiếu đặt bàn
     UI->>API: POST /api/v1/reservations (Trạng thái: PENDING)
     API->>DB: Lưu đơn đặt bàn (PENDING) & sinh Mã đặt bàn BK-8921
     M->>UI: Mở Bảng điều phối đặt bàn -> Thấy đoàn 8 khách
@@ -264,49 +272,28 @@ sequenceDiagram
     DB-->>DB: PostgreSQL Trigger tự động kích hoạt -> Ghi bản ghi vào audit_logs
     API-->>UI: Xác nhận hủy món & tự động cập nhật lại tổng tiền tạm tính
 
-    Note over M,DB: Luồng 3: Thanh toán, Cấn trừ cọc & Tích lũy điểm hội viên
+    Note over M,DB: Luồng 3: Thanh toán, Cấn trừ cọc & Xuất hóa đơn
     M->>UI: Mở Bảng kê xem trước (Pre-bill) cho Bàn 3+4
     UI->>API: GET /api/v1/invoices/preview/order-12
     API->>DB: Tính toán: Tổng = Tiền món + Phụ thu VIP - Tiền cọc đã trả + 8% VAT
     API-->>UI: Trả về Bảng kê chi tiết
     M->>UI: Xác nhận hình thức thanh toán (Thẻ / Chuyển khoản QR / Tiền mặt)
     UI->>API: POST /api/v1/invoices/checkout
-    API->>DB: Đóng đơn (PAID), Chuyển trạng thái bàn -> DIRTY, Cộng điểm thưởng hội viên
+    API->>DB: Đóng đơn (PAID), Chuyển trạng thái bàn -> DIRTY
     API-->>UI: Xuất luồng file PDF hóa đơn nhiệt
     UI-->>M: In hóa đơn nhiệt & chuyển bàn sang hàng đợi dọn dẹp
 ```
 
 ---
 
-### 2.3 Hệ Thống Thiết Kế Giao Diện & Quy Chuẩn Thẩm Mỹ (UI Design System)
+### 2.4 Hệ Thống Thiết Kế & Quy Chuẩn Công Thái Học (UI Design & Ergonomics)
 
-Ngôn ngữ thị giác cân bằng giữa sự ấm cúng, sang trọng của không gian ẩm thực cao cấp và tốc độ thao tác chuẩn xác, nhanh chóng trong môi trường nhà hàng:
+1. **Ngôn ngữ thiết kế tối giản (Minimalist Luxury Aesthetic):**
+   * **Kiểu chữ:** Kết hợp giữa phông chữ có chân thanh lịch cổ điển (`Cormorant Garamond`, `Playfair Display`) cho tiêu đề và phông không chân sắc nét (`Plus Jakarta Sans`) cho nội dung và số liệu.
+   * **Bảng màu:** Tông nền sáng kem trang nhã (`#FFFFFF` / `#FAF8F5`), tương phản cùng chữ đen than chì (`#1E1E1E`) và điểm xuyết sắc xanh olive / vàng đồng trầm (`#726B52`).
+   * **Đường nét:** Đường kẻ chỉ mỏng nhẹ (`1px solid #E6E2DB`), loại bỏ các khối hộp viền dày cứng nhắc, tạo cảm giác nhẹ nhàng, tĩnh lặng.
 
-* **Typography (Kiểu chữ & Số liệu):** Sử dụng phông chữ không chân hiện đại, rõ nét (`Plus Jakarta Sans` hoặc `Inter`), kết hợp cùng định dạng số dạng bảng tính (`font-variant-numeric: tabular-nums`) giúp các cột số tiền, hóa đơn và thời gian luôn thẳng hàng, dễ đọc lướt.
-* **Kiến trúc bề mặt & Tương phản ánh sáng:**
-  * **Hỗ trợ Giao diện Tối (Dark Mode):** Nền than chì dịu mắt (`#0F172A` / `#1E293B`) dành cho nhân viên phục vụ trong không gian ẩm thực ánh sáng trầm, tránh gây lóa mắt khách và giảm mỏi mắt nhân viên.
-  * **Giao diện Sáng mặc định (Light Mode):** Bề mặt tương phản sắc nét (`#FFFFFF` / `#F8FAFC`) với đổ bóng tinh tế dành cho quầy thu ngân và máy tính quản lý ban ngày.
-* **Bộ Mã Màu Trạng Thái Bàn Thời Gian Thực (Semantic Table State):**
-
-| Trạng Thái Bàn | Tên Màu | Mã Màu Hex | Ý Nghĩa Vận Hành Trên Sàn |
-| :--- | :--- | :--- | :--- |
-| **AVAILABLE** | Xanh Ngọc Bích | `#22C55E` | Bàn trống, đã dọn sạch và khử trùng; sẵn sàng đón khách vãng lai. |
-| **RESERVED** | Vàng Hổ Phách | `#F59E0B` | Bàn đã có khách đặt trước sắp đến; khóa không nhận khách vãng lai. |
-| **OCCUPIED** | Đỏ San Hô | `#EF4444` | Bàn đang có khách ăn; các món ăn đang được phục vụ hoặc chế biến. |
-| **DIRTY / CLEANING**| Xám Tro | `#64748B` | Khách đã thanh toán xong; bàn đang chờ dọn dẹp trước khi chuyển lại bàn trống. |
-
----
-
-### 2.4 Nguyên Lý Công Thái Học Theo Từng Thiết Bị (Ergonomics UX)
-
-1. **Cổng Khách Hàng (Website Responsive trên Mobile & Desktop):**
-   * **Trải nghiệm không rào cản:** Khách có thể hoàn tất đặt bàn chỉ trong 1 phút bằng Tên + SĐT mà không bị ép tạo tài khoản; chỉ khách muốn tích lũy điểm mới cần đăng nhập.
-   * **Tự tra cứu tiện lợi:** Trang tra cứu giúp khách xem tiến độ duyệt đơn, kiểm tra bàn được xếp hoặc chủ động hủy đặt chỗ theo chính sách hoàn cọc tự động.
-
-2. **Ứng Dụng POS Phục Vụ (Giao Diện Smartphone Thao Tác 1 Tay):**
-   * **Linh hoạt tối đa:** Bất kỳ bồi bàn nào cũng có thể mở bàn, thêm món hoặc hủy món nhầm ngay lập tức thông qua các nút chọn lý do nhanh (*"Khách đổi ý"*, *"Bếp hết món"*, *"Bấm nhầm số lượng"*) mà không cần gọi quản lý, hệ thống tự động ghi nhật ký kiểm toán.
-   * **Tối ưu vùng ngón cái (Thumb-Zone):** Tất cả các nút bấm có tần suất dùng cao nhất ("Thêm món", "Gửi vào bếp", "Hủy món") được bố trí nằm trọn ở **40% nửa dưới màn hình**.
-
-3. **Màn Hình Quản Lý & Thu Ngân (Tablet / Desktop Màn Hình Rộng):**
-   * **Bàn điều phối xếp chỗ trực quan:** Cho phép quản lý ghép bàn hoặc đổi chỗ linh hoạt trên bản đồ để sẵn sàng đón đoàn khách đông bất ngờ trước khi bấm duyệt đặt bàn.
-   * **Giám sát chống thất thoát tự động:** Cho phép nhân viên chủ động thao tác để phục vụ khách nhanh nhất, nhưng mọi hành động đều được lưu vết kiểm toán bất biến (*Audit Trail*) vào cơ sở dữ liệu để đối soát cuối ca.
+2. **Nguyên lý công thái học theo từng thiết bị (Ergonomics by Form Factor):**
+   * **Cổng Khách hàng (Desktop/Mobile Web):** Trải nghiệm 1-page liền mạch, không chuyển trang rườm rà. Nút đặt bàn ở đầu trang luôn sẵn sàng cuộn nhanh đến phiếu điền thông tin.
+   * **POS Di động cho Phục vụ (Smartphone 1 tay):** Tối ưu hóa vùng ngón tay cái (Thumb-zone), các nút chọn danh mục và thao tác hủy món được bố trí ở nửa dưới màn hình để bồi bàn bấm nhanh khi đang di chuyển.
+   * **Màn hình Quản lý & Thu ngân (Widescreen Tablet/Desktop):** Giao diện bảng điều khiển chia đôi (Split-screen) giúp vừa quan sát sơ đồ bàn 2D, vừa xử lý duyệt đơn đặt bàn `PENDING` và in hóa đơn thanh toán.
