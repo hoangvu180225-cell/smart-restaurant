@@ -1,181 +1,221 @@
-# DATABASE.md — Đặc Tả Cơ Sở Dữ Liệu Chi Tiết (PostgreSQL)
+# DATABASE.md — Đặc Tả Cơ Sở Dữ Liệu Tự Động Hóa (PostgreSQL 16)
 
-> **Dự án:** SmartRestaurant — Hệ Thống Quản Lý Đặt Bàn & POS Gọi Món Di Động  
-> **Hệ quản trị CSDL:** PostgreSQL 16  
-> **Tài liệu:** Từ Điển Dữ Liệu, Lược Đồ DBML, Sơ Đồ ERD & Trigger Kiểm Toán  
-
----
-
-## 1. Tổng Quan Lược Đồ Cơ Sở Dữ Liệu (Schema Overview)
-
-Cơ sở dữ liệu của SmartRestaurant được thiết kế theo chuẩn dạng chuẩn 3 (3NF), đảm bảo tính toàn vẹn dữ liệu, hiệu năng truy vấn cao và an toàn giao dịch tài chính ACID:
-* **11 Bảng dữ liệu quan hệ:** Bao phủ đầy đủ các phân hệ người dùng, không gian phòng bàn, thực đơn, đặt chỗ trực tuyến, phiên gọi món tại bàn, hóa đơn thu ngân và nhật ký kiểm toán.
-* **5 Kiểu dữ liệu ENUM:** Chuẩn hóa các trạng thái nghiệp vụ cố định (`user_role`, `table_status`, `reservation_status`, `order_status`, `item_status`).
-* **Trigger tự động:** Kích hoạt lưu vết kiểm toán bất biến khi có thao tác nhạy cảm (hủy món).
-
-> 📂 File DBML chuẩn hóa: [architecture/schema.dbml](./architecture/schema.dbml)  
-> 📂 Kịch bản DDL tạo bảng: [../src/database/schema.sql](../src/database/schema.sql)  
-> 📂 Dữ liệu mẫu khởi tạo: [../src/database/sample_data.sql](../src/database/sample_data.sql)
+> **Dự án:** SmartRestaurant — Hệ Thống Tự Động Hóa Vận Hành Đặt Bàn AI, QR Self-Ordering & POS Di Động  
+> **Phiên bản:** 2.0.0 — Full Automation & AI-Driven Architecture  
+> **Tài liệu:** Từ Điển Dữ Liệu, Sơ Đồ ERD, ENUMs & Triggers Kiểm Toán Bất Biến  
 
 ---
 
-## 2. Sơ Đồ Quan Hệ Thực Thể (ER Mermaid Diagram)
+## 1. Sơ Đồ Quan Hệ Thực Thể Toàn Diện (ER Mermaid Diagram)
 
 ```mermaid
 erDiagram
     branches ||--o{ areas : "has"
     areas ||--o{ tables : "locates"
-    areas ||--o{ reservations : "requested_in"
-    users ||--o{ reservations : "books"
-    tables ||--o{ reservations : "assigned_to"
-    tables ||--o{ orders : "serves"
-    users ||--o{ orders : "waiter_opens"
-    reservations ||--o| orders : "transitions_to"
-    reservations ||--o{ reservation_preorders : "includes"
+    areas ||--o{ reservations : "preferred_in"
+    tables ||--o{ reservations : "ai_allocated_to"
+    tables ||--o{ table_sessions : "hosts"
+    reservations ||--o| table_sessions : "activates"
+    table_sessions ||--o{ orders : "creates"
+    table_sessions ||--o{ service_calls : "triggers"
     menu_categories ||--o{ menu_items : "groups"
-    menu_items ||--o{ reservation_preorders : "preordered"
     orders ||--o{ order_items : "contains"
-    menu_items ||--o{ order_items : "ordered"
-    users ||--o{ order_items : "cancelled_by"
+    menu_items ||--o{ order_items : "item_details"
     orders ||--|| invoices : "settles"
-    users ||--o{ invoices : "cashier_issues"
-    users ||--o{ audit_logs : "performed_by"
+    table_sessions ||--o{ audit_logs : "audits_session"
+    users ||--o{ audit_logs : "performed_by_staff"
+```
+
+---
+
+## 2. Danh Sách ENUM Types Chuẩn Hóa
+
+```sql
+CREATE TYPE user_role AS ENUM ('ADMIN', 'MANAGER', 'STAFF_CONCIERGE', 'CHEF', 'CUSTOMER');
+CREATE TYPE table_status AS ENUM ('AVAILABLE', 'RESERVED', 'OCCUPIED', 'DIRTY');
+CREATE TYPE reservation_status AS ENUM ('PENDING', 'PENDING_ALLOCATION', 'CONFIRMED', 'SEATED', 'CANCELLED', 'NO_SHOW');
+CREATE TYPE deposit_status AS ENUM ('NONE', 'PENDING', 'PAID', 'REFUNDED', 'FORFEITED');
+CREATE TYPE session_status AS ENUM ('ACTIVE', 'COMPLETED', 'EXPIRED');
+CREATE TYPE order_status AS ENUM ('OPEN', 'PAID', 'CANCELLED');
+CREATE TYPE item_status AS ENUM ('PENDING', 'COOKING', 'READY', 'SERVED', 'CANCELLED');
+CREATE TYPE actor_type AS ENUM ('GUEST', 'STAFF', 'AI_SYSTEM');
+CREATE TYPE service_call_type AS ENUM ('CANCEL_COOKING_ITEM', 'EXTRA_ICE_CONDIMENT', 'CLEAN_TABLE', 'GENERAL_HELP');
+CREATE TYPE service_call_status AS ENUM ('PENDING', 'ACKNOWLEDGED', 'RESOLVED');
 ```
 
 ---
 
 ## 3. Từ Điển Dữ Liệu Chi Tiết (Data Dictionary)
 
-### 3.1 Bảng `users` (Tài khoản & Phân quyền)
-| Tên Cột | Kiểu Dữ Liệu | Ràng Buộc | Ý Nghĩa Nghiệp Vụ |
+### 3.1 Bảng `tables` (Bàn Ăn)
+| Cột | Kiểu Dữ Liệu | Ràng Buộc | Ý Nghĩa |
 | :--- | :--- | :--- | :--- |
-| `id` | BIGSERIAL | PRIMARY KEY | Định danh người dùng duy nhất |
-| `username` | VARCHAR(50) | UNIQUE, NOT NULL | Tên đăng nhập |
-| `password_hash` | VARCHAR(255) | NOT NULL | Mật khẩu mã hóa bằng bcrypt |
-| `full_name` | VARCHAR(100) | NOT NULL | Họ và tên hiển thị |
-| `phone` | VARCHAR(20) | UNIQUE, NOT NULL | Số điện thoại liên lạc |
-| `role` | user_role | NOT NULL, DEFAULT 'CUSTOMER' | Vai trò: `ADMIN`, `MANAGER`, `CASHIER`, `WAITER`, `CUSTOMER` |
-| `loyalty_points`| INT | DEFAULT 0, CHECK >= 0 | Điểm tích lũy hội viên sau mỗi lần thanh toán |
-| `is_active` | BOOLEAN | DEFAULT TRUE | Trạng thái hoạt động của tài khoản |
-| `created_at` | TIMESTAMPTZ | DEFAULT CURRENT_TIMESTAMP | Thời điểm tạo tài khoản |
+| `id` | SERIAL | PRIMARY KEY | Định danh duy nhất của bàn. |
+| `area_id` | INT | NOT NULL, FK `areas(id)` | Khu vực phòng (Sảnh, Sân Vườn, VIP). |
+| `table_number` | VARCHAR(20) | NOT NULL, UNIQUE | Mã bàn (ví dụ: `T1-01`, `VIP-01`). |
+| `capacity` | INT | NOT NULL, CHECK > 0 | Sức chứa tối đa (2, 4, 6, 8 chỗ). |
+| `coord_x`, `coord_y` | INT | NOT NULL | Tọa độ trên bản vẽ mặt bằng 2D. |
+| `status` | table_status | DEFAULT 'AVAILABLE' | Trạng thái: `AVAILABLE`, `RESERVED`, `OCCUPIED`, `DIRTY`. |
+| `qr_code_token` | VARCHAR(64) | UNIQUE | Token bảo mật gắn cố định vào mã QR tại bàn. |
 
-### 3.2 Bảng `branches` (Chi nhánh nhà hàng)
-| Tên Cột | Kiểu Dữ Liệu | Ràng Buộc | Ý Nghĩa Nghiệp Vụ |
+### 3.2 Bảng `table_sessions` (Phiên Khách Ngồi Ăn Tại Bàn - MỚI)
+| Cột | Kiểu Dữ Liệu | Ràng Buộc | Ý Nghĩa |
 | :--- | :--- | :--- | :--- |
-| `id` | BIGSERIAL | PRIMARY KEY | Mã chi nhánh |
-| `name` | VARCHAR(100) | NOT NULL | Tên chi nhánh |
-| `address` | TEXT | NOT NULL | Địa chỉ chi nhánh |
-| `phone` | VARCHAR(20) | NOT NULL | Số hotline chi nhánh |
+| `id` | SERIAL | PRIMARY KEY | Định danh phiên bàn. |
+| `table_id` | INT | NOT NULL, FK `tables(id)` | Bàn ăn đang mở phiên. |
+| `reservation_id` | INT | NULL, FK `reservations(id)` | Khách đặt trước (NULL nếu là khách vãng lai). |
+| `host_phone` | VARCHAR(20) | NOT NULL | Số điện thoại của người chủ bàn (Host). |
+| `host_otp` | VARCHAR(6) | NOT NULL | Mã OTP 4-6 số bảo mật phiên gọi món. |
+| `status` | session_status | DEFAULT 'ACTIVE' | Trạng thái: `ACTIVE`, `COMPLETED`, `EXPIRED`. |
+| `is_walkin` | BOOLEAN | DEFAULT FALSE | Đánh dấu khách vãng lai check-in trực tiếp. |
+| `opened_at` | TIMESTAMP | DEFAULT NOW() | Thời gian mở phiên. |
+| `closed_at` | TIMESTAMP | NULL | Thời gian đóng phiên sau khi thanh toán. |
 
-### 3.3 Bảng `areas` (Khu vực / Phòng ẩm thực)
-| Tên Cột | Kiểu Dữ Liệu | Ràng Buộc | Ý Nghĩa Nghiệp Vụ |
+### 3.3 Bảng `reservations` (Phiếu Đặt Bàn & AI Phân Bổ)
+| Cột | Kiểu Dữ Liệu | Ràng Buộc | Ý Nghĩa |
 | :--- | :--- | :--- | :--- |
-| `id` | BIGSERIAL | PRIMARY KEY | Mã khu vực |
-| `branch_id` | BIGINT | FK $\rightarrow$ `branches(id)` | Thuộc chi nhánh nào |
-| `name` | VARCHAR(100) | NOT NULL | Tên khu vực: Sảnh Chính T1, Sân Vườn T2, Phòng VIP |
-| `is_vip` | BOOLEAN | DEFAULT FALSE | Cờ đánh dấu phòng VIP khép kín |
-| `surcharge_rate`| NUMERIC(5,2)| DEFAULT 0.00 | Tỷ lệ phụ thu phòng VIP tính theo % (ví dụ 10.00%) |
+| `id` | SERIAL | PRIMARY KEY | Định danh đơn đặt bàn. |
+| `code` | VARCHAR(20) | NOT NULL, UNIQUE | Mã đặt chỗ (ví dụ: `BK-8921`). |
+| `customer_name` | VARCHAR(100) | NOT NULL | Tên người đặt bàn. |
+| `customer_phone` | VARCHAR(20) | NOT NULL | Số điện thoại liên hệ. |
+| `guest_count` | INT | NOT NULL, CHECK > 0 | Số lượng khách. |
+| `reservation_time` | TIMESTAMP | NOT NULL | Thời gian hẹn dùng bữa. |
+| `preferred_area_id`| INT | NULL, FK `areas(id)` | Vị trí ưu tiên mềm (Soft Preference) do khách chọn. |
+| `assigned_table_id` | INT | NULL, FK `tables(id)` | Mã bàn chính thức do AI phân bổ tối ưu. |
+| `host_otp` | VARCHAR(6) | NOT NULL | Mã OTP cấp cho khách để mở phiên tại bàn. |
+| `status` | reservation_status | DEFAULT 'PENDING' | Tiến trình duyệt và check-in của đơn. |
+| `deposit_amount` | NUMERIC(12,2) | DEFAULT 0 | Số tiền cọc cần đóng ($500.000\text{ ₫}$ nếu $\ge 6$ người/VIP). |
+| `deposit_status` | deposit_status | DEFAULT 'NONE' | Trạng thái cọc VietQR. |
 
-### 3.4 Bảng `tables` (Bàn ăn & Tọa độ 2D)
-| Tên Cột | Kiểu Dữ Liệu | Ràng Buộc | Ý Nghĩa Nghiệp Vụ |
+### 3.4 Bảng `order_items` (Chi Tiết Món Trong Phiên)
+| Cột | Kiểu Dữ Liệu | Ràng Buộc | Ý Nghĩa |
 | :--- | :--- | :--- | :--- |
-| `id` | BIGSERIAL | PRIMARY KEY | Mã bàn ăn duy nhất |
-| `area_id` | BIGINT | FK $\rightarrow$ `areas(id)` | Thuộc khu vực/phòng nào |
-| `table_number` | VARCHAR(20) | NOT NULL | Tên bàn: `T1-Bàn 1`, `T2-Bàn 4`, `VIP-Phòng 1` |
-| `capacity` | INT | NOT NULL, CHECK > 0 | Sức chứa số lượng ghế ngồi tiêu chuẩn |
-| `coord_x` | INT | DEFAULT 0 | Tọa độ X vẽ trên sơ đồ mặt bằng 2D |
-| `coord_y` | INT | DEFAULT 0 | Tọa độ Y vẽ trên sơ đồ mặt bằng 2D |
-| `status` | table_status | DEFAULT 'AVAILABLE' | Máy trạng thái 4 màu: `AVAILABLE`, `RESERVED`, `OCCUPIED`, `DIRTY` |
+| `id` | SERIAL | PRIMARY KEY | Định danh món trong order. |
+| `order_id` | INT | NOT NULL, FK `orders(id)` | Thuộc đơn order nào. |
+| `menu_item_id` | INT | NOT NULL, FK `menu_items(id)` | Món ăn được chọn. |
+| `quantity` | INT | NOT NULL, CHECK > 0 | Số lượng đĩa. |
+| `unit_price` | NUMERIC(12,2) | NOT NULL | Đơn giá tại thời điểm gọi. |
+| `item_notes` | VARCHAR(255) | NULL | Ghi chú khẩu vị (`Ít cay`, `Không hành`). |
+| `item_status` | item_status | DEFAULT 'PENDING' | Vòng đời món: `PENDING`, `COOKING`, `READY`, `SERVED`, `CANCELLED`. |
+| `cancel_reason` | TEXT | NULL | Lý do hủy món (bắt buộc khi hủy). |
+| `cancelled_by_actor`| actor_type | NULL | Ai hủy: `GUEST` (tự hủy khi pending) hoặc `STAFF` (can thiệp khi cooking). |
+| `cancelled_by_id` | VARCHAR(50) | NULL | ID nhân viên (nếu do staff hủy) hoặc Phone của Guest. |
 
-### 3.5 Bảng `reservations` (Phiếu đặt bàn trước)
-| Tên Cột | Kiểu Dữ Liệu | Ràng Buộc | Ý Nghĩa Nghiệp Vụ |
+### 3.5 Bảng `service_calls` (Chuông Gọi Phục Vụ Thông Minh - MỚI)
+| Cột | Kiểu Dữ Liệu | Ràng Buộc | Ý Nghĩa |
 | :--- | :--- | :--- | :--- |
-| `id` | BIGSERIAL | PRIMARY KEY | Khóa chính đơn đặt |
-| `booking_code` | VARCHAR(20) | UNIQUE, NOT NULL | Mã đặt bàn duy nhất gửi cho khách (ví dụ `BK-8921`) |
-| `customer_id` | BIGINT | FK $\rightarrow$ `users(id)`, NULLABLE | Khách hội viên (NULL nếu là khách vãng lai) |
-| `customer_name`| VARCHAR(100)| NOT NULL | Tên người liên hệ |
-| `customer_phone`| VARCHAR(20)| NOT NULL | Số điện thoại nhận tin nhắn xác nhận |
-| `guest_count` | INT | NOT NULL, CHECK > 0 | Số lượng khách tham gia |
-| `assigned_table_id`| BIGINT | FK $\rightarrow$ `tables(id)`, NULLABLE | Bàn được gán (NULL khi PENDING, gán khi CONFIRMED) |
-| `reservation_time`| TIMESTAMPTZ | NOT NULL | Ngày giờ đặt hẹn đến nhà hàng |
-| `deposit_amount`| NUMERIC(12,2)| DEFAULT 0.00 | Số tiền cọc giữ chỗ đã thanh toán |
-| `status` | reservation_status | DEFAULT 'PENDING' | Trạng thái: `PENDING`, `CONFIRMED`, `SEATED`, `CANCELLED` |
+| `id` | SERIAL | PRIMARY KEY | Định danh yêu cầu phục vụ. |
+| `session_id` | INT | NOT NULL, FK `table_sessions(id)` | Phiên bàn gửi yêu cầu. |
+| `table_id` | INT | NOT NULL, FK `tables(id)` | Bàn phát sinh yêu cầu. |
+| `call_type` | service_call_type | NOT NULL | Loại: Hủy món đang nấu, thêm đá/khăn, dọn dẹp, hỗ trợ khác. |
+| `details` | TEXT | NULL | Thông tin cụ thể (ví dụ: "Hủy đĩa Bò Wagyu A5"). |
+| `status` | service_call_status | DEFAULT 'PENDING' | Tiến trình xử lý của nhân viên. |
+| `created_at` | TIMESTAMP | DEFAULT NOW() | Thời gian khách bấm chuông. |
+| `resolved_by` | INT | NULL, FK `users(id)` | Nhân viên đã tiếp nhận xử lý. |
 
-### 3.6 Bảng `orders` & `order_items` (Phiên phục vụ & Món ăn tại bàn)
-* **`orders`:** Quản lý phiên dùng bữa của một bàn (`table_id`, `waiter_id`, `status: SERVING | PAID | CANCELLED`, `opened_at`, `closed_at`).
-* **`order_items`:** Chi tiết từng món ăn trong phiên phục vụ (`order_id`, `menu_item_id`, `quantity`, `price`, `taste_notes`, `status: WAITING | COOKING | SERVED | CANCELLED`, `cancel_reason`, `cancelled_by`).
-
-### 3.7 Bảng `invoices` (Hóa đơn & Thu ngân)
-| Tên Cột | Kiểu Dữ Liệu | Ràng Buộc | Ý Nghĩa Nghiệp Vụ |
+### 3.6 Bảng `audit_logs` (Nhật Ký Kiểm Toán Bất Biến)
+| Cột | Kiểu Dữ Liệu | Ràng Buộc | Ý Nghĩa |
 | :--- | :--- | :--- | :--- |
-| `id` | BIGSERIAL | PRIMARY KEY | Khóa chính hóa đơn |
-| `order_id` | BIGINT | UNIQUE, FK $\rightarrow$ `orders(id)`| Thuộc phiên order nào |
-| `cashier_id` | BIGINT | FK $\rightarrow$ `users(id)` | Thu ngân chốt thanh toán |
-| `subtotal_amount`| NUMERIC(12,2)| NOT NULL | Tổng tiền món ăn |
-| `vip_surcharge`| NUMERIC(12,2)| DEFAULT 0.00 | Phụ thu phòng VIP |
-| `deposit_deducted`| NUMERIC(12,2)| DEFAULT 0.00 | Tiền cọc đã cấn trừ 100% |
-| `tax_vat` | NUMERIC(12,2)| DEFAULT 0.00 | Thuế VAT 8% |
-| `final_amount` | NUMERIC(12,2)| NOT NULL | Số tiền thực thu cuối cùng |
-| `payment_method`| VARCHAR(50) | DEFAULT 'CASH' | `CASH`, `CREDIT_CARD`, `VIETQR` |
-| `paid_at` | TIMESTAMPTZ | DEFAULT CURRENT_TIMESTAMP | Thời điểm thanh toán |
-
-### 3.8 Bảng `audit_logs` (Nhật ký kiểm toán chống gian lận)
-| Tên Cột | Kiểu Dữ Liệu | Ràng Buộc | Ý Nghĩa Nghiệp Vụ |
-| :--- | :--- | :--- | :--- |
-| `id` | BIGSERIAL | PRIMARY KEY | Khóa chính bản ghi kiểm toán |
-| `table_name` | VARCHAR(50) | NOT NULL | Bảng bị tác động (ví dụ `order_items`) |
-| `record_id` | BIGINT | NOT NULL | Khóa chính của bản ghi bị tác động |
-| `action_type` | VARCHAR(20) | NOT NULL | `CANCEL_ITEM`, `TRANSFER_TABLE`, `REFUND_DEPOSIT` |
-| `performed_by` | BIGINT | FK $\rightarrow$ `users(id)`, NULLABLE| ID nhân viên thực hiện thao tác |
-| `reason` | TEXT | NOT NULL | Lý do nghiệp vụ bắt buộc |
-| `old_data` | JSONB | NULLABLE | Dữ liệu trước khi sửa đổi |
-| `new_data` | JSONB | NULLABLE | Dữ liệu sau khi sửa đổi |
-| `created_at` | TIMESTAMPTZ | DEFAULT CURRENT_TIMESTAMP | Thời gian bất biến của máy chủ CSDL |
+| `id` | SERIAL | PRIMARY KEY | Định danh bản ghi kiểm toán. |
+| `action` | VARCHAR(50) | NOT NULL | Hành vi: `CANCEL_ITEM_PENDING`, `CANCEL_ITEM_COOKING`, `PAY_AT_TABLE`, `NO_SHOW_RELEASE`, v.v. |
+| `actor_type` | actor_type | NOT NULL | Phân loại tác nhân: `GUEST`, `STAFF`, `AI_SYSTEM`. |
+| `actor_id` | VARCHAR(50) | NOT NULL | ID định danh tác nhân thực hiện. |
+| `session_id` | INT | NULL | Liên kết với phiên bàn (nếu có). |
+| `old_values` | JSONB | NULL | Dữ liệu trạng thái trước khi thay đổi. |
+| `new_values` | JSONB | NULL | Dữ liệu trạng thái sau khi thay đổi. |
+| `reason` | TEXT | NOT NULL | Lý do bắt buộc cho thao tác nhạy cảm. |
+| `created_at` | TIMESTAMP | DEFAULT NOW() | Dấu thời gian bất biến. |
 
 ---
 
-## 4. Cơ Chế Database Trigger Tự Động Ghi Log Khi Hủy Món
+## 4. Trigger Cơ Sở Dữ Liệu Tự Động (PostgreSQL 16)
 
-Để đảm bảo bồi bàn có thể linh hoạt hủy món khi khách đổi ý nhưng hoàn toàn loại trừ rủi ro thông đồng gian lận tiền mặt, hệ thống cài đặt Trigger tự động tại PostgreSQL:
+### 4.1 Trigger Kiểm Soát Ràng Buộc Hủy Món (Enforce Item Cancellation Security)
+Ngăn chặn tuyệt đối việc Khách hàng tự ý gửi request hủy món khi món đã chuyển sang `COOKING`:
 
 ```sql
-CREATE OR REPLACE FUNCTION audit_order_item_cancel()
+CREATE OR REPLACE FUNCTION fn_check_item_cancellation_permission()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Chỉ kích hoạt khi trạng thái món chuyển sang CANCELLED
-    IF (OLD.status <> 'CANCELLED' AND NEW.status = 'CANCELLED') THEN
+    -- Nếu trạng thái chuyển sang CANCELLED
+    IF NEW.item_status = 'CANCELLED' AND OLD.item_status != 'CANCELLED' THEN
+        -- Nếu món đang nấu (COOKING), chỉ STAFF mới được quyền can thiệp hủy
+        IF OLD.item_status = 'COOKING' AND NEW.cancelled_by_actor != 'STAFF' THEN
+            RAISE EXCEPTION 'Món ăn đang trong quá trình chế biến (COOKING). Thực khách không thể tự hủy trực tiếp. Vui lòng gọi nhân viên phục vụ hỗ trợ.'
+                USING ERRCODE = '45001';
+        END IF;
+
+        -- Bắt buộc phải có lý do hủy món
+        IF NEW.cancel_reason IS NULL OR LENGTH(TRIM(NEW.cancel_reason)) = 0 THEN
+            RAISE EXCEPTION 'Thao tác hủy món bắt buộc phải cung cấp lý do cụ thể.'
+                USING ERRCODE = '45002';
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_check_item_cancellation
+BEFORE UPDATE ON order_items
+FOR EACH ROW
+EXECUTE FUNCTION fn_check_item_cancellation_permission();
+```
+
+### 4.2 Trigger Tự Động Ghi Vết Kiểm Toán Bất Biến (Immutable Audit Trigger)
+Tự động kích hoạt khi có bất kỳ món ăn nào bị hủy, lưu chi tiết vào bảng `audit_logs`:
+
+```sql
+CREATE OR REPLACE FUNCTION fn_audit_order_item_cancellation()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.item_status = 'CANCELLED' AND OLD.item_status != 'CANCELLED' THEN
         INSERT INTO audit_logs (
-            table_name,
-            record_id,
-            action_type,
-            performed_by,
+            action,
+            actor_type,
+            actor_id,
+            session_id,
+            old_values,
+            new_values,
             reason,
-            old_data,
-            new_data
-        )
-        VALUES (
-            'order_items',
-            NEW.id,
-            'CANCEL_ITEM',
-            NEW.cancelled_by,
+            created_at
+        ) VALUES (
+            CASE 
+                WHEN OLD.item_status = 'PENDING' THEN 'CANCEL_ITEM_PENDING'
+                ELSE 'CANCEL_ITEM_COOKING'
+            END,
+            NEW.cancelled_by_actor,
+            COALESCE(NEW.cancelled_by_id, 'UNKNOWN'),
+            (SELECT session_id FROM orders WHERE id = NEW.order_id),
+            jsonb_build_object('item_id', OLD.id, 'status', OLD.item_status, 'quantity', OLD.quantity),
+            jsonb_build_object('item_id', NEW.id, 'status', NEW.item_status, 'cancel_reason', NEW.cancel_reason),
             NEW.cancel_reason,
-            row_to_json(OLD)::jsonb,
-            row_to_json(NEW)::jsonb
+            NOW()
         );
     END IF;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_audit_cancel_item
+CREATE TRIGGER trg_audit_order_item_cancellation
 AFTER UPDATE ON order_items
-FOR EACH ROW EXECUTE FUNCTION audit_order_item_cancel();
+FOR EACH ROW
+EXECUTE FUNCTION fn_audit_order_item_cancellation();
 ```
 
----
+### 4.3 Trigger Bảo Vệ Bất Biến Bảng `audit_logs` (Immutability Enforcement)
+Cấm hoàn toàn mọi lệnh `UPDATE` hoặc `DELETE` trên bảng nhật ký kiểm toán:
 
-## 5. Chính Sách Bất Biến (Immutability Policy)
-Bảng `audit_logs` tuân thủ nguyên tắc ghi chép kiểm toán bất biến (*Append-Only Log*):
-* Cấp quyền: `GRANT SELECT, INSERT ON audit_logs TO restaurant_app;`
-* Thu hồi toàn bộ quyền: `REVOKE UPDATE, DELETE, TRUNCATE ON audit_logs FROM restaurant_app;`
-* Bất kỳ nỗ lực sửa đổi hoặc xóa bản ghi kiểm toán đều bị chặn ngay ở tầng nhân cơ sở dữ liệu.
+```sql
+CREATE OR REPLACE FUNCTION fn_prevent_audit_log_modification()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION 'Dữ liệu kiểm toán an toàn (audit_logs) là bất biến. Nghiêm cấm mọi hành vi UPDATE hoặc DELETE!'
+        USING ERRCODE = '45003';
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_enforce_audit_immutability
+BEFORE UPDATE OR DELETE ON audit_logs
+FOR EACH ROW
+EXECUTE FUNCTION fn_prevent_audit_log_modification();
+```

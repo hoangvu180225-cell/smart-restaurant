@@ -1,79 +1,131 @@
 # 02 — Danh Mục Tính Năng Chi Tiết (Feature Specifications)
 
-> **Dự án:** SmartRestaurant — Hệ Thống Quản Lý Đặt Bàn & POS Gọi Món Di Động  
-> **Phiên bản:** 1.0.0 — Production Readiness  
-> **Tài liệu:** Bảng Đặc Tả Tính Năng Toàn Diện Hệ Thống  
+> **Dự án:** SmartRestaurant — Hệ Thống Tự Động Hóa Vận Hành Đặt Bàn AI, QR Self-Ordering & POS Di Động  
+> **Phiên bản:** 2.0.0 — Full Automation & AI-Driven Architecture  
+> **Tài liệu:** Bảng Đặc Tả Chi Tiết 10 Miền Tính Năng Tự Động Hóa  
 
 ---
 
 ## 1. Bản Đồ Miền Tính Năng (Feature Domain Map)
 
-Hệ thống SmartRestaurant phân bổ các tính năng nghiệp vụ thành 8 miền chức năng chính:
+Hệ thống SmartRestaurant 2.0 phân bổ các năng lực vận hành thành 10 miền chức năng tự động hóa khép kín:
 
 ```text
-┌────────────────────────────────────────────────────────────────────────┐
-│                        SMARTRESTAURANT FEATURES                        │
-├─────────────────────┬──────────────────────────┬───────────────────────┤
-│ F01: Đặt Bàn 1-Page │ F02: Sơ Đồ Bàn 2D Thực Tế│ F03: Mobile Waiter POS│
-├─────────────────────┼──────────────────────────┼───────────────────────┤
-│ F04: Điều Phối Cọc  │ F05: Pre-Bill & Thu Ngân │ F06: Menu & Bảng Giá  │
-├─────────────────────┼──────────────────────────┼───────────────────────┤
-│ F07: Dashboard KPI  │ F08: Audit Log Bất Biến  │                       │
-└─────────────────────┴──────────────────────────┴───────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                        SMARTRESTAURANT 2.0 FEATURE DOMAINS                             │
+├──────────────────────────┬─────────────────────────────┬───────────────────────────────┤
+│ F01: AI Booking Chatbot  │ F02: AI Table Allocator     │ F03: Scan-to-Order & Host OTP │
+├──────────────────────────┼─────────────────────────────┼───────────────────────────────┤
+│ F04: Group Cart & Tracking│ F05: Kitchen Display (KDS) │ F06: Pay-at-Table & E-Invoice │
+├──────────────────────────┼─────────────────────────────┼───────────────────────────────┤
+│ F07: Staff Concierge App │ F08: 2D Floor & Auto-Release│ F09: Dynamic Menu & Pricing   │
+├──────────────────────────┼─────────────────────────────┼───────────────────────────────┤
+│ F10: KPI & Immutable Audit│                            │                               │
+└──────────────────────────┴─────────────────────────────┴───────────────────────────────┘
 ```
 
 ---
 
 ## 2. Chi Tiết Từng Miền Tính Năng
 
-### F01 — Phân Hệ Đặt Bàn Trực Tuyến 1-Page (Customer Booking Portal)
-* **Trải nghiệm 1-Page liền mạch:** Thiết kế theo phong cách Contemporary Luxury, cuộn mượt giữa các phần: Giới thiệu $\rightarrow$ Thực đơn tinh tuyển $\rightarrow$ Không gian phòng $\rightarrow$ Phiếu đặt bàn.
-* **Đặt bàn linh hoạt 2 chế độ:**
-  * *Khách vãng lai:* Đặt bàn nhanh không cần tạo tài khoản, chỉ cần Tên, Số điện thoại, Giờ hẹn và Số lượng khách.
-  * *Hội viên:* Đăng nhập tài khoản để tích lũy điểm thưởng (Loyalty Points) sau khi thanh toán hóa đơn.
-* **Chọn trước món ăn (Pre-order):** Khách có thể chọn trước các món đặc sản hoặc set menu ngay khi gửi phiếu đặt bàn.
-* **Xuất vé đặt chỗ PENDING:** Hệ thống cấp mã booking duy nhất (ví dụ: `BK-8921`) và gửi thông báo xác nhận qua SMS/Email.
+### F01 — Cổng Đặt Bàn Trực Tuyến Tích Hợp AI Chatbot Tư Vấn
+* **Giao diện Contemporary Luxury 1-Page:** Thực khách lướt xem không gian kiến trúc, menu tinh tuyển và tương tác với AI Assistant.
+* **AI Chatbot tư vấn thông minh:** Hỗ trợ thực khách qua hội thoại tự nhiên:
+  * Gợi ý set menu theo số lượng người, sở thích ẩm thực hoặc mức ngân sách.
+  * Phân tích khung giờ vắng để gợi ý khách đặt bàn nhằm có trải nghiệm riêng tư nhất.
+  * Hướng dẫn chọn khu vực phù hợp (lãng mạn ở Sân Vườn Terrace, sôi động tại Sảnh Chính, hoặc tiếp khách tại Phòng VIP).
+* **Đăng ký vị trí ưu tiên mềm (Soft Preference):** Khách chọn khu vực hoặc loại bàn mong muốn (ví dụ: bàn gần cửa kính), hệ thống lưu nhận dạng ưu tiên để thuật toán AI xếp chỗ.
+* **Cọc tự động VietQR:** Đoàn đông ($\ge 6$ người) hoặc phòng VIP tự động sinh mã VietQR động để khách cọc giữ chỗ $500.000\text{ ₫}$.
+* **Xuất vé điện tử kèm Host OTP:** Xác nhận phiếu đặt bàn `BK-xxxx`, hiển thị mã **Host OTP (4 số)** trực tiếp trên màn hình và gửi sao lưu qua SMS/Email.
 
-### F02 — Sơ Đồ Mặt Bằng Kiến Trúc 2D (Architectural 2D Floor Plan)
-* **Tái hiện vị trí thực tế:** Hiển thị tọa độ chính xác của từng bàn trong các khu vực: Sảnh Chính Tầng 1, Sân Vườn Terrace Tầng 2, Khu Phòng Tiệc VIP.
-* **Máy trạng thái 4 màu thời gian thực:**
-  * 🟢 **AVAILABLE (Trống):** Sẵn sàng tiếp nhận khách mới.
-  * 🟡 **RESERVED (Đã đặt / Đã cọc):** Đã có khách đặt trước sắp đến trong vòng 60 phút.
-  * 🔴 **OCCUPIED (Đang ăn):** Bàn đang có khách ngồi dùng bữa, hiển thị số tiền tạm tính hiện tại.
-  * ⚫ **DIRTY (Chờ dọn):** Khách đã thanh toán rời đi, bàn đang chờ nhân viên dọn dẹp và khử trùng.
-* **Hai chế độ hiển thị:** Chuyển đổi linh hoạt giữa *Chế độ Vận hành Trực tuyến* (Live Colored Status) và *Chế độ Phác thảo Bản vẽ Kiến trúc* (B&W Architectural Sketch Mode).
+---
 
-### F03 — POS Phục Vụ Di Động (Mobile Waiter POS)
-* **Thiết kế công thái học 1 tay (Thumb-zone):** Toàn bộ nút chọn danh mục, tăng/giảm số lượng và xác nhận order được bố trí ở nửa dưới màn hình điện thoại.
-* **Mở bàn & Gửi order nhanh:** Nhân viên chạm chọn bàn trống để mở bàn (`OCCUPIED`), chọn món trong tích tắc và gửi thẳng xuống bếp.
-* **Ghi chú khẩu vị chuyên biệt:** Hỗ trợ nhập nhanh các tùy chỉnh khẩu vị cho từng món (`Không hành`, `Ít cay`, `Nướng chín vừa`).
-* **Hủy món linh hoạt kèm lý do bắt buộc:** Nhân viên có quyền hủy món ngay tại bàn khi khách đổi ý; bắt buộc chọn lý do từ danh mục hoặc nhập tay; hệ thống tự động lưu vết vào nhật ký kiểm toán.
+### F02 — AI Table Allocation Engine (Bộ Não Tối Ưu Xếp Chỗ)
+* **Thuật toán tối ưu hóa công suất lấp đầy:** Giải bài toán phân bổ không gian và thời gian (Bin Packing & Constraint Optimization) dựa trên:
+  * Số lượng khách thực tế của từng đoàn.
+  * Vị trí ưu tiên mềm của khách.
+  * Khoảng thời gian xoay vòng bàn trung bình (90–120 phút/lượt).
+* **Ngăn chặn lãng phí diện tích:** Tự động ngăn chặn việc gán nhóm 2 người vào bàn 6 chỗ khi khung giờ đó có tiềm năng đón đoàn đông.
+* **Ghép bàn ảo tự động:** Nhận diện và gộp các bàn 2 hoặc bàn 4 liền kề thành bàn tiệc lớn khi có đoàn 8–16 khách.
+* **Tự động chốt và thông báo:** 60 phút trước giờ hẹn, AI chốt mã bàn chính thức (ví dụ: `T1-Bàn 04`) và push thông báo SMS/Zalo/Email kèm vị trí dẫn đường cho khách.
 
-### F04 — Điều Phối Đặt Bàn & Quy Tắc Cọc Thông Minh (Reservations Dispatch)
-* **Hàng đợi đơn PENDING:** Quản lý theo dõi danh sách các đoàn khách đã gửi phiếu đặt bàn đang chờ duyệt.
-* **Quy tắc đặt cọc tự động:**
-  * Nhóm nhỏ ($\le 4$ khách): Miễn phí cọc giữ chỗ.
-  * Đoàn đông ($\ge 6$ khách) hoặc đặt phòng VIP: Bắt buộc đặt cọc cố định (ví dụ 500.000 ₫) và cung cấp mã chuyển khoản VietQR tự động.
-* **Chính sách ghép bàn / Đổi bàn:** Hỗ trợ gán và gộp nhiều bàn trống liền kề để đón tiếp đoàn khách đông người trước khi chuyển trạng thái sang `CONFIRMED`.
+---
 
-### F05 — Bảng Kê Tạm Tính & Quầy Thu Ngân (Billing & Cashier Register)
-* **Bảng kê xem trước (Pre-bill):**
-  * Tự động tính: $\text{Tổng thanh toán} = \text{Tiền món} + \text{Phụ thu VIP} - \text{Tiền cọc đã nộp} + \text{Thuế VAT 8\%}$.
-  * Cho phép khách kiểm tra kỹ danh sách món ăn và số tiền cọc đã được khấu trừ 100% trước khi quẹt thẻ hoặc thanh toán.
-* **Đa dạng hình thức thanh toán:** Tiền mặt, Thẻ tín dụng/ghi nợ, Chuyển khoản QR ngân hàng (VietQR).
-* **In hóa đơn nhiệt chuẩn 80mm:** Tự động định dạng hóa đơn nhiệt và chuyển trạng thái bàn sang `DIRTY` sau khi thanh toán thành công.
+### F03 — Scan-to-Order & Bảo Mật Phiên Bàn Bằng Host OTP
+* **Mã QR động/tĩnh tại từng bàn:** Khách đến bàn dùng camera điện thoại quét mã QR để mở trực tiếp Web App gọi món (không cần cài app).
+* **Cơ chế xác thực Host OTP (Anti-tamper & Anti-spoofing):**
+  * Yêu cầu nhập mã **Host OTP** đã được cấp trên vé đặt bàn.
+  * Ngăn chặn triệt để tình trạng khách bàn bên cạnh quét trộm QR hoặc người ngoài quét mã order phá hoại.
+* **Walk-in Instant Check-in (Khách vãng lai):**
+  * Khách vào bàn trống 🟢 `AVAILABLE` quét QR $\rightarrow$ Hệ thống kiểm tra nếu bàn không vướng lịch hẹn trong 90 phút tới $\rightarrow$ Khách nhập SĐT, hệ thống kích hoạt phiên tại chỗ và sinh OTP tức thì.
 
-### F06 — Quản Lý Thực Đơn & Giá Bán (Menu Management)
-* **Phân cấp danh mục khoa học:** Khai vị, Món chính, Món nướng, Tráng miệng, Đồ uống & Rượu vang.
-* **Bật / Tắt trạng thái hết món tức thì:** Quản lý có thể chuyển trạng thái món sang hết hàng chỉ bằng 1 cú chạm khi bếp báo thiếu nguyên liệu.
-* **Cơ chế Soft-Delete:** Ẩn món không còn phục vụ nhưng giữ nguyên khóa ngoại để bảo toàn toàn vẹn lịch sử hóa đơn kế toán.
+---
 
-### F07 — Dashboard Điều Hành Ca Trực (Executive KPI Dashboard)
-* **Thẻ Doanh thu tổng hợp nền trắng:** Cho phép xem nhanh doanh thu theo Ngày, Tuần, Tháng kèm biểu đồ cột tích hợp hiển thị phân bổ theo khung giờ và các ngày trong tuần.
-* **Biểu đồ tròn tỉ lệ doanh thu phòng:** Thể hiện trực quan mức độ đóng góp doanh thu giữa Sảnh Chính, Sân Vườn và Phòng VIP.
-* **Bố cục song song 3/4 & 1/4:** Hàng chờ khách đặt bàn sắp tới (chiếm 3/4) đặt ngang hàng với Bảng xếp hạng món bán chạy tinh gọn (chiếm 1/4).
+### F04 — Giỏ Hàng Nhóm Thời Gian Thực & Quản Lý Vòng Đời Món Ăn
+* **Collaborative Group Cart (Giỏ hàng nhóm):**
+  * Tất cả thành viên tại bàn sau khi nhập đúng OTP đều có thể xem thực đơn và thêm món vào giỏ hàng chung trên thiết bị cá nhân (đồng bộ qua WebSocket).
+  * **Quyền Host Duyệt:** Chỉ người đặt bàn (Host) mới có nút bấm gửi toàn bộ giỏ hàng xuống bếp để kiểm soát ngân sách.
+* **Hiển thị trực quan vòng đời món ăn 4 bước:**
+  * 🟡 `PENDING` (Đang chờ bếp nhận): Khách hàng có nút **"Hủy món"** trực tiếp. Bấm hủy lập tức loại món khỏi hóa đơn và ghi log.
+  * 🔵 `COOKING` (Bếp đang nấu): Hệ thống **khóa nút tự hủy**, thay thế bằng nút **"Gọi nhân viên hỗ trợ"**.
+  * 🟢 `READY` (Món đã nấu xong): Bếp chuẩn bị chuyển món ra bàn.
+  * ⚪ `SERVED` (Món đã lên bàn): Trạng thái hoàn tất dùng bữa.
 
-### F08 — Nhật Ký Kiểm Toán Chống Gian Lận (Immutable Audit Trail)
-* **Trigger cơ sở dữ liệu độc lập:** Mọi hành vi nhạy cảm (hủy món, chuyển bàn, chỉnh sửa hóa đơn, hoàn cọc) đều được kích hoạt tự động ở tầng PostgreSQL Trigger `trg_audit_cancel_item`.
-* **Dữ liệu kiểm toán toàn diện:** Lưu giữ ID nhân viên thực hiện, thời gian chính xác, dữ liệu trước/sau dạng JSONB và lý do thao tác bắt buộc.
-* **Tính bất biến (Immutability):** Cấm hoàn toàn quyền `UPDATE` và `DELETE` trên bảng `audit_logs`.
+---
+
+### F05 — Kitchen Display System (Màn Hình Bếp / Bar 1-Chạm)
+* **Giao diện trạm bếp KDS chuyên dụng:** Hiển thị trên máy tính bảng hoặc màn hình chuyên dụng tại Bếp Nóng, Bếp Nguội và Quầy Bar.
+* **Nhóm món theo trạm chế biến:** Đơn order từ bàn tự động phân tách: đồ uống sang Bar, khai vị sang Bếp Nguội, món nướng/xào sang Bếp Nóng.
+* **Thao tác 1-chạm tối giản cho đầu bếp:**
+  * Chạm 1: Đổi trạng thái món từ `PENDING` sang `COOKING` (đồng thời kích hoạt khóa nút hủy của khách trên toàn hệ thống).
+  * Chạm 2: Đổi trạng thái sang `READY` $\rightarrow$ Phát chuông và đẩy thông báo cho nhân viên chạy bàn mang ra.
+* **Thời gian cảnh báo đĩa trễ:** Đĩa món chờ quá 15 phút tự động nhấp nháy đỏ để đầu bếp ưu tiên xử lý.
+
+---
+
+### F06 — Pay-at-Table & Tự Động Đối Soát Hóa Đơn Điện Tử
+* **Bảng kê xem trước điện tử (Live Pre-bill):**
+  * Hiển thị chi tiết danh sách món đã phục vụ, phụ thu phòng VIP (nếu có), thuế VAT 8%.
+  * **Tự động cấn trừ 100% tiền cọc:** Dòng tiền cọc đã đóng trước đó hiển thị rõ ràng (`- 500.000 ₫`), khách chỉ cần thanh toán số tiền chênh lệch còn lại.
+* **Thanh toán tức thì không cần đợi thu ngân:**
+  * Khách chọn thanh toán bằng VietQR động (đúng số tiền và nội dung) hoặc thẻ ngân hàng/ví điện tử.
+  * Cổng thanh toán trả Webhook xác nhận thành công $\rightarrow$ Hệ thống tự động đóng đơn `PAID`.
+  * Xuất e-receipt gửi qua SMS/Email hoặc tải PDF về điện thoại.
+* **Tự động chuyển bàn ⚫ DIRTY:** Ngay khi thanh toán thành công, bàn trên sơ đồ 2D lập tức chuyển sang trạng thái chờ dọn và đẩy thông báo cho đội ngũ phục vụ.
+
+---
+
+### F07 — Staff Concierge App & Chuông Gọi Phục Vụ Thông Minh
+* **Tái định vị nhân viên thành "Trợ lý hỗ trợ khách hàng":** Giải phóng nhân viên khỏi việc bấm order thủ công, tập trung 100% vào chất lượng chăm sóc.
+* **Smart Call Bell (Chuông gọi phục vụ phân loại):**
+  * Khách bấm gọi hỗ trợ trên Web App theo các nhu cầu định sẵn:
+    * 🛑 *Hỗ trợ hủy/đổi món đang nấu* $\rightarrow$ Nhân viên đến kiểm tra với bếp.
+    * 🧊 *Thêm đá, gia vị, khăn lạnh, đổi chén đĩa*.
+    * 🙋 *Khách lớn tuổi nhờ nhân viên gọi món hộ qua Staff App*.
+* **Task Dọn dẹp bàn tự động:** Nhân viên nhận danh sách các bàn ⚫ `DIRTY` cần dọn; sau khi vệ sinh bàn xong, nhân viên chạm nút "Đã dọn xong" $\rightarrow$ Bàn lập tức hồi sinh về 🟢 `AVAILABLE`.
+
+---
+
+### F08 — Sơ Đồ Mặt Bằng 2D & Tự Động Hóa Vòng Đời Bàn
+* **Bản đồ 2D thời gian thực:** Trực quan hóa tọa độ các bàn tại Sảnh Chính, Sân Vườn và Phòng VIP với 4 màu trạng thái (`AVAILABLE`, `RESERVED`, `OCCUPIED`, `DIRTY`).
+* **Auto-Release on No-Show:** Tiến trình chạy ngầm quét các đơn `RESERVED`:
+  * Quá giờ hẹn 15 phút chưa check-in $\rightarrow$ Tự động gửi tin nhắn cảnh báo đếm ngược 5 phút.
+  * Quá 20 phút $\rightarrow$ Tự động hủy đơn, phạt 100% cọc và chuyển bàn về `AVAILABLE` đón khách mới.
+
+---
+
+### F09 — Quản Lý Thực Đơn & Giá Bán (Dynamic Menu Management)
+* **Bật/Tắt hết hàng tức thì:** Đầu bếp hoặc quản lý chạm 1 nút để báo hết món khi hết nguyên liệu $\rightarrow$ Web App của khách lập tức hiển thị nhãn `HẾT HÀNG`, chặn thêm vào giỏ.
+* **Cơ chế Soft-Delete:** Ẩn món khỏi menu nhưng giữ nguyên khóa ngoại trong CSDL để bảo đảm toàn vẹn lịch sử hóa đơn kế toán.
+* **Cấu hình bảng giá linh hoạt:** Điều chỉnh giá món, tỷ lệ phụ thu phòng VIP và chính sách đặt cọc theo khung giờ/ngày lễ.
+
+---
+
+### F10 — Executive Dashboard & Nhật Ký Kiểm Toán Bất Biến
+* **Dashboard điều hành thông minh:**
+  * Theo dõi doanh thu theo thời gian thực (Ngày, Tuần, Tháng).
+  * Chỉ số tự động hóa: Tỷ lệ khách tự quét QR order (Self-service rate), thời gian ra món trung bình của bếp, tốc độ quay vòng bàn.
+  * Tỷ lệ đóng góp doanh thu giữa Sảnh Chính, Sân Vườn và VIP Room.
+* **Immutable Audit Trail (PostgreSQL Trigger):**
+  * Tự động ghi vết mọi hành vi nhạy cảm của cả Nhân viên (`STAFF`) lẫn Khách hàng (`GUEST`): khách tự hủy món `PENDING`, nhân viên can thiệp hủy món `COOKING`, hoàn cọc, chuyển bàn.
+  * Cấm hoàn toàn quyền `UPDATE` và `DELETE` trên bảng `audit_logs`.

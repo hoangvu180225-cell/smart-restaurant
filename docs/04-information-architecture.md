@@ -1,96 +1,112 @@
 # 04 — Kiến Trúc Thông Tin & Giao Diện Người Dùng (Information Architecture & UI)
 
-> **Dự án:** SmartRestaurant — Hệ Thống Quản Lý Đặt Bàn & POS Gọi Món Di Động  
-> **Phiên bản:** 1.0.0 — Production Readiness  
-> **Tài liệu:** Kiến Trúc Điều Hướng, Tuyến Đường & Thư Viện Giao Diện Trực Quan  
+> **Dự án:** SmartRestaurant — Hệ Thống Tự Động Hóa Vận Hành Đặt Bàn AI, QR Self-Ordering & POS Di Động  
+> **Phiên bản:** 2.0.0 — Full Automation & AI-Driven Architecture  
+> **Tài liệu:** Bản Đồ Kiến Trúc Thông Tin, Luồng Điều Hướng & Giao Diện 5 Phân Hệ  
 
 ---
 
 ## 1. Bản Đồ Kiến Trúc Thông Tin (Information Architecture Sitemap)
 
-Hệ thống tổ chức cấu trúc màn hình và luồng điều hướng theo 3 phân hệ độc lập:
+SmartRestaurant 2.0 tổ chức kiến trúc thông tin xoay quanh trải nghiệm tự phục vụ của thực khách, đồng bộ thời gian thực với trạm bếp, nhân viên sàn và bảng điều hành quản lý:
 
 ```mermaid
 graph TD
-    Root["SmartRestaurant Application"]
+    Root["Hệ Thống SmartRestaurant 2.0"]
 
-    subgraph Customer["1. Cổng Khách Hàng (Website 1-Page Đương Đại)"]
-        CP_Nav["Header Cố Định: Logo · Thực Đơn · Không Gian · Nút ĐẶT BÀN"]
-        CP_Hero["Hero Section: Hình ảnh nghệ thuật & Triết lý ẩm thực"]
-        CP_Menu["Editorial Menu Grid: Set Menu & Món theo danh mục"]
-        CP_Spaces["Không Gian Ẩm Thực: Sảnh Chính, Sân Vườn, Phòng VIP"]
-        CP_Ticket["Phiếu Đặt Bàn: Form gạch chân tối giản & Xuất vé PENDING"]
-
-        CP_Nav -.-> CP_Ticket
-        CP_Hero --> CP_Menu --> CP_Spaces --> CP_Ticket
+    subgraph C1["1. Cổng Khách Hàng & AI Chatbot (Web 1-Page)"]
+        CP_Hero["Hero Section: Triết lý ẩm thực & Không gian"]
+        CP_Chat["AI Chatbot Widget: Tư vấn món, giờ vắng, bàn phù hợp"]
+        CP_Menu["Editorial Menu Grid: Phân loại danh mục & Set menu"]
+        CP_Space["Không Gian Phòng: Sảnh Chính, Sân Vườn, VIP Royal"]
+        CP_Book["Phiếu Đặt Bàn: Số khách, giờ hẹn, vị trí ưu tiên mềm"]
+        CP_Dep["Cổng Cọc VietQR Động: Đoàn đông & Phòng VIP"]
+        CP_Ticket["Vé Đặt Bàn Điện Tử: Mã BK-xxxx & Host OTP 4 số"]
+        
+        CP_Hero --> CP_Chat
+        CP_Hero --> CP_Menu --> CP_Space --> CP_Book --> CP_Dep --> CP_Ticket
     end
 
-    subgraph Waiter["2. POS Phục Vụ Di Động (Smartphone 1 Tay)"]
-        WP_Auth["Đăng nhập mã PIN nhân viên"]
-        WP_Floor["Lưới trạng thái bàn di động (Màu sắc thời gian thực)"]
-        WP_Order["Phiếu gọi món bàn đang phục vụ"]
-        WP_Thumb["Thao tác 1 tay: Tìm món, tăng giảm số lượng & ghi chú bếp"]
-        WP_Cancel["Hủy món ăn linh hoạt (Chọn lý do + Tự kích hoạt Trigger)"]
+    subgraph C2["2. Web App Gọi Món & Thanh Toán Tại Bàn (Scan-to-Order)"]
+        SO_Scan["Quét QR Code tại bàn ăn"]
+        SO_Auth["Xác thực Host OTP (hoặc Walk-in SĐT Check-in)"]
+        SO_Room["Phòng Gọi Món Chung (Collaborative Group Cart)"]
+        SO_Track["Live Item Tracker: PENDING ➔ COOKING ➔ READY"]
+        SO_Cancel["Nút Tự Hủy Món PENDING (Trừ bill tức thì)"]
+        SO_Bell["Chuông Gọi Phục Vụ Thông Minh: Đổi món, thêm đá, dọn bàn"]
+        SO_Pay["Pay-at-Table: Pre-bill trừ cọc 100% ➔ VietQR động ➔ E-Receipt"]
 
-        WP_Auth --> WP_Floor --> WP_Order --> WP_Thumb
-        WP_Order --> WP_Cancel
+        SO_Scan --> SO_Auth --> SO_Room --> SO_Track
+        SO_Track --> SO_Cancel
+        SO_Track --> SO_Bell
+        SO_Room --> SO_Pay
     end
 
-    subgraph Manager["3. Bảng Điều Khiển Quản Lý & Thu Ngân (Desktop/Tablet)"]
-        MD_Kpi["Executive Dashboard: Doanh thu cột/tròn, Công suất & Top món"]
-        MD_Floor["Sơ đồ mặt bằng kiến trúc 2D: Vị trí bàn thực tế theo phòng"]
-        MD_Pos["POS Quản lý & Thu ngân: Bảng kê Pre-bill, trừ cọc, in hóa đơn"]
-        MD_Dispatch["Bảng điều phối đặt bàn: Hàng đợi PENDING & Xếp bàn đoàn đông"]
-        MD_Audit["Bảng tra cứu nhật ký kiểm toán bất biến chống gian lận"]
+    subgraph C3["3. Màn Hình Trạm Bếp KDS (Kitchen Display System)"]
+        KD_Station["Phân trạm: Bếp Nóng · Bếp Nguội · Quầy Bar"]
+        KD_Card["Thẻ Order: Danh sách món, bàn số, thời gian chờ"]
+        KD_Touch1["Chạm 1: Xác nhận COOKING (Hệ thống khóa nút tự hủy của khách)"]
+        KD_Touch2["Chạm 2: Xác nhận READY (Phát chuông báo bồi bàn mang ra)"]
+        KD_Stock["Nút chuyển trạng thái HẾT MÓN tức thì"]
 
-        MD_Kpi --> MD_Floor --> MD_Pos --> MD_Dispatch --> MD_Audit
+        KD_Station --> KD_Card --> KD_Touch1 --> KD_Touch2
+        KD_Station --> KD_Stock
     end
 
-    Root --> Customer
-    Root --> Waiter
-    Root --> Manager
+    subgraph C4["4. Staff Concierge App (Trợ Lý Phục Vụ Sàn)"]
+        ST_Alert["Màn hình nhận thông báo chuông gọi phục vụ thông minh"]
+        ST_Intervene["Can thiệp xử lý hủy món đang COOKING (Xác nhận với bếp)"]
+        ST_Dirty["Danh sách nhiệm vụ dọn dẹp bàn DIRTY"]
+        ST_Done["Chạm nút: Đã dọn xong (Bàn chuyển về AVAILABLE)"]
+        ST_Help["Hỗ trợ khách lớn tuổi order hộ qua máy nhân viên"]
+
+        ST_Alert --> ST_Intervene
+        ST_Dirty --> ST_Done
+        ST_Alert --> ST_Help
+    end
+
+    subgraph C5["5. Bảng Điều Khiển Quản Lý & Admin (Manager Console)"]
+        MN_Floor["Sơ Đồ Mặt Bằng 2D: Vị trí bàn thực tế & 4 màu trạng thái"]
+        MN_Ai["AI Allocation Monitor: Giám sát thuật toán xếp bàn tự động"]
+        MN_Kpi["Executive Dashboard: Doanh thu, Tỷ lệ tự order, Tốc độ ra món"]
+        MN_Audit["Tra cứu Nhật ký kiểm toán bất biến chống gian lận (Trigger DB)"]
+        MN_Menu["Quản trị Menu, Giá bán, Phụ thu VIP & Cấu hình ngưỡng cọc"]
+
+        MN_Floor --> MN_Ai --> MN_Kpi --> MN_Audit --> MN_Menu
+    end
+
+    Root --> C1
+    Root --> C2
+    Root --> C3
+    Root --> C4
+    Root --> C5
 ```
 
 ---
 
-## 2. Bảng Ánh Xạ Tuyến Đường & Màn Hình Hệ Thống
+## 2. Thiết Kế Trải Nghiệm Người Dùng (UX Flow Chi Tiết)
 
-| Định Danh View | Tuyến Đường (URL Route) | Phân Hệ & Thiết Bị | Nhiệm Vụ Nghiệp Vụ Trọng Tâm |
-| :--- | :--- | :--- | :--- |
-| `VIEW-CP-01` | `/` | Khách hàng (Web/Mobile) | Trang chủ 1-page liền mạch: Giới thiệu thương hiệu, Thực đơn, Không gian và Phiếu đặt bàn. |
-| `VIEW-CP-02` | `/#menu` | Khách hàng (Web/Mobile) | Phần xem thực đơn theo phong cách Editorial Grid với khung viền thanh mảnh. |
-| `VIEW-CP-03` | `/#dat-ban` | Khách hàng (Web/Mobile) | Phiếu đặt bàn tối giản; tự động tính tiền cọc cho đoàn $\ge 6$ người hoặc phòng VIP. |
-| `VIEW-WP-01` | `/pos/tables` | Phục vụ (Smartphone) | Lưới trạng thái bàn di động tối ưu chạm, hiển thị thời gian dùng bữa và bàn chờ dọn. |
-| `VIEW-WP-02` | `/pos/order/:tableId` | Phục vụ (Smartphone) | Phiếu gọi món bàn đang ăn: thêm món, ghi chú gửi bếp, hủy món tức thì kèm lý do. |
-| `VIEW-MD-01` | `/admin/dashboard` | Quản lý (Desktop/Tablet) | Báo cáo KPI điều hành: thẻ doanh thu trắng tích hợp biểu đồ cột, biểu đồ tròn phòng, hàng chờ 3/4 và BXH 1/4. |
-| `VIEW-MD-02` | `/admin/floor-map` | Quản lý (Desktop/Tablet) | Bản đồ không gian 2D: hiển thị chính xác vị trí thực tế của từng bàn trong từng phòng. |
-| `VIEW-MD-03` | `/admin/reservations`| Quản lý (Desktop/Tablet) | Bàn điều phối đặt bàn: duyệt đơn `PENDING`, ghép bàn đón đoàn đông, xác nhận đơn. |
-| `VIEW-MD-04` | `/admin/billing/:orderId`| Thu ngân (Desktop/Tablet)| Xem bảng kê tạm tính (Pre-bill), cấn trừ 100% tiền cọc, xuất hóa đơn nhiệt PDF. |
-| `VIEW-MD-05` | `/admin/audit` | Quản lý (Desktop/Tablet) | Tra cứu nhật ký kiểm toán bất biến: theo dõi lịch sử hủy món, chuyển bàn, chiết khấu. |
+### 2.1 Luồng Tự Phục Vụ Của Thực Khách (The Guest Journey)
+1. **Lên Web / Chat AI:** Khách mở trang web, trò chuyện với AI Chatbot để nhận tư vấn chỗ ngồi và món đặc sắc.
+2. **Đặt bàn & Nhận OTP:** Điền form chọn vị trí ưu tiên mềm $\rightarrow$ Quét cọc VietQR (nếu $\ge 6$ người/VIP) $\rightarrow$ Nhận vé điện tử hiển thị mã **Host OTP**.
+3. **Đến quán & Quét QR bàn:** Khách vào đúng bàn do AI phân bổ, dùng camera quét QR trên bàn $\rightarrow$ Nhập Host OTP $\rightarrow$ Mở phòng gọi món.
+4. **Chọn món cùng nhóm:** Các thành viên trong bàn quét QR cùng nhập OTP để thêm món vào giỏ hàng chung; Host bấm nút "Gửi Bếp".
+5. **Theo dõi tiến độ món:** 
+   * Món đang `PENDING`: Khách bấm "Hủy món" được ngay nếu đổi ý.
+   * Món chuyển `COOKING`: Nút hủy khóa lại, khách bấm "Gọi phục vụ hỗ trợ" nếu thực sự cần hủy.
+6. **Tự thanh toán tại bàn:** Bấm "Thanh toán", kiểm tra hóa đơn đã khấu trừ 100% tiền cọc $\rightarrow$ Quét mã VietQR chuyển khoản $\rightarrow$ Nhận e-receipt và rời quán.
 
 ---
 
-## 3. Thư Viện Giao Diện Trực Quan (UI Showcase)
+### 2.2 Luồng Vận Hành Trạm Bếp (The Chef Journey)
+1. **Tiếp nhận order:** Màn hình KDS trạm bếp phát âm thanh thông báo thẻ order mới hiển thị bàn, tên món, ghi chú khẩu vị (`Ít cay`, `Không hành`).
+2. **Chế biến món:** Đầu bếp chạm vào thẻ món $\rightarrow$ Chuyển trạng thái sang `COOKING`. Hệ thống lập tức khóa quyền tự hủy của khách hàng.
+3. **Hoàn thành đĩa ăn:** Đầu bếp chạm lần 2 $\rightarrow$ Chuyển trạng thái sang `READY`. Hệ thống đẩy thông báo cho nhân viên sàn bưng ra bàn.
 
-Tất cả các bản thiết kế thực tế của hệ thống được lưu trữ trong thư mục `docs/images/`:
+---
 
-### 3.1 Cổng Khách Hàng — Trang Chủ & Giới Thiệu (Hero Section)
-![Trang Chủ & Giới Thiệu](./images/Homepage.png)
-
-### 3.2 Cổng Khách Hàng — Thực Đơn Tinh Tuyển (Editorial Menu Grid)
-![Thực Đơn Tinh Tuyển](./images/Menu.png)
-
-### 3.3 Cổng Khách Hàng — Không Gian Nhà Hàng (Dining Spaces)
-![Không Gian Phòng](./images/Room.png)
-
-### 3.4 Cổng Khách Hàng — Phiếu Đặt Bàn (Reservation Ticket)
-![Phiếu Đặt Bàn](./images/Book_Ticket.png)
-
-### 3.5 Phân Hệ Phục Vụ — POS Gọi Món Di Động (Mobile Waiter POS)
-![Mobile Waiter POS](./images/Mobile_Waiter_POS.png)
-
-### 3.6 Phân Hệ Quản Lý — Dashboard Tổng Quan Ca Trực (Executive Dashboard)
-![Dashboard Tổng Quan Ca Trực](./images/Dashboard.png)
-
-### 3.7 Phân Hệ Quản Lý — Sơ Đồ Mặt Bằng Kiến Trúc 2D (Spatial Floor Map)
-![Sơ Đồ Mặt Bằng Kiến Trúc 2D](./images/Table_Map.png)
+### 2.3 Luồng Trợ Lý Nhân Viên (The Staff Concierge Journey)
+1. **Nhận cảnh báo cuộc gọi:** Điện thoại nhân viên rung chuông: *"Bàn VIP-01 cần hỗ trợ đổi món Bò Wagyu"* hoặc *"Bàn T-03 xin thêm đá lạnh"*.
+2. **Hỗ trợ tận nơi:** Nhân viên đến bàn giải quyết yêu cầu; nếu hủy món đang nấu thì nhân viên thao tác xác nhận trên máy kèm nhập lý do hủy.
+3. **Tiếp nhận bàn cần dọn:** Sau khi khách thanh toán tại bàn, hệ thống đẩy task: *"Bàn T-05 đã thanh toán, đang chờ dọn"*.
+4. **Hồi sinh bàn:** Nhân viên dọn dẹp sạch sẽ, chạm nút "Đã dọn xong" $\rightarrow$ Bàn trên sơ đồ 2D lập tức chuyển sang màu xanh 🟢 `AVAILABLE` để AI xếp khách mới.

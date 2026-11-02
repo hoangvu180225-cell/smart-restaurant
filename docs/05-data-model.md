@@ -1,103 +1,89 @@
 # 05 — Mô Hình Dữ Liệu & Máy Trạng Thái Nghiệp Vụ (Data Model & State Machines)
 
-> **Dự án:** SmartRestaurant — Hệ Thống Quản Lý Đặt Bàn & POS Gọi Món Di Động  
-> **Phiên bản:** 1.0.0 — Production Readiness  
-> **Tài liệu:** Đặc Tả Mô Hình Thực Thể & Các Máy Chuyển Trạng Thái Cốt Lõi  
+> **Dự án:** SmartRestaurant — Hệ Thống Tự Động Hóa Vận Hành Đặt Bàn AI, QR Self-Ordering & POS Di Động  
+> **Phiên bản:** 2.0.0 — Full Automation & AI-Driven Architecture  
+> **Tài liệu:** Lược Đồ Dữ Liệu Thực Thể & Các Máy Trạng Thái Tự Động Hóa  
 
 ---
 
-## 1. Phân Cấp Sơ Đồ Không Gian Nhà Hàng (Spatial Hierarchy)
+## 1. Phân Cấp Sơ Đồ Không Gian & Thực Thể Phiên Bàn
 
-Cấu trúc không gian phục vụ được tổ chức theo quan hệ phân cấp 3 tầng nghiêm ngặt:
+```text
+Chi Nhánh (branches) ──► Khu Vực (areas) ──► Bàn Ăn (tables) ──► Phiên Bàn Ăn (table_sessions)
+```
 
-$$\text{Chi Nhánh (branches)} \longrightarrow \text{Khu Vực / Phòng (areas)} \longrightarrow \text{Bàn Ăn (tables)}$$
-
-* **Chi Nhánh (`branches`):** Tên cơ sở, địa chỉ, số điện thoại hotline.
-* **Khu Vực / Phòng (`areas`):**
-  * *Sảnh Chính (Tầng 1):* Không gian mở hoàng gia, sức chứa lớn, phụ thu $0\%$.
-  * *Sân Vườn Terrace (Tầng 2):* Không gian thoáng mát ngoài trời, phụ thu $0\%$.
-  * *Phòng Tiệc VIP Royal:* Phòng tiệc khép kín có điều hòa riêng, phụ thu cố định (ví dụ $10\%$).
-* **Bàn Ăn (`tables`):** Định danh duy nhất theo từng phòng (ví dụ `T1-Bàn 1`, `VIP-Phòng 1`), sức chứa tiêu chuẩn, tọa độ `coord_x, coord_y` để kết xuất trực tiếp lên sơ đồ 2D.
+* **`branches`:** Quản lý thông tin chi nhánh nhà hàng.
+* **`areas`:** Khu vực không gian phục vụ (`Sảnh Chính T1`, `Sân Vườn Terrace T2`, `Phòng Tiệc VIP Royal` với tỷ lệ phụ thu `surcharge_percent = 10%`).
+* **`tables`:** Từng bàn ăn với tọa độ kiến trúc `coord_x, coord_y`, sức chứa `capacity`, trạng thái hiện tại `status` và `qr_code_token`.
+* **`table_sessions` (MỚI):** Đại diện cho một phiên khách ngồi ăn tại bàn. Lưu giữ mã **`host_otp` (4 số)**, liên kết với `reservation_id` (hoặc đánh dấu khách vãng lai `is_walkin = true`). Mọi thiết bị cùng bàn muốn thêm món vào giỏ hàng chung đều phải liên kết với `session_id` này.
 
 ---
 
 ## 2. Máy Trạng Thái Của Bàn Ăn (Table State Machine)
 
-Vòng đời của từng bàn ăn được quản lý bằng bộ chuyển trạng thái tự động và đồng bộ thời gian thực:
-
 ```mermaid
 stateDiagram-v2
-    [*] --> AVAILABLE: Khởi tạo / Sau dọn dẹp
+    [*] --> AVAILABLE: Khởi tạo / Sau khi dọn sạch bàn
 
-    AVAILABLE --> RESERVED: Có khách đặt trước sắp đến trong 60 phút
-    AVAILABLE --> OCCUPIED: Khách vãng lai vào bàn / Phục vụ mở bàn
-    
-    RESERVED --> OCCUPIED: Khách đặt bàn đến nơi & mở bàn
-    RESERVED --> AVAILABLE: Khách hủy bàn hoặc quá giờ hẹn (No-show)
+    AVAILABLE --> RESERVED: AI chốt gán bàn cho đơn đặt trước (60 phút trước giờ hẹn)
+    AVAILABLE --> OCCUPIED: Khách vãng lai quét QR check-in tức thì tại bàn trống
 
-    OCCUPIED --> DIRTY: Thu ngân hoàn tất thanh toán (Checkout)
+    RESERVED --> OCCUPIED: Khách đặt bàn quét QR & nhập đúng Host OTP
+    RESERVED --> AVAILABLE: Tiến trình Cron tự động phạt cọc & nhả bàn khi No-Show (> 20 phút)
+
+    OCCUPIED --> DIRTY: Khách tự thanh toán tại bàn (Pay-at-table) thành công
     
-    DIRTY --> AVAILABLE: Nhân viên phục vụ / Tạp vụ xác nhận dọn xong
+    DIRTY --> AVAILABLE: Nhân viên phục vụ bấm "Đã dọn xong bàn" trên Staff App
 ```
 
-| Trạng Thái | Màu Sắc | Ý Nghĩa Vận Hành | Thao Tác Kích Hoạt |
+| Trạng Thái | Màu Sắc | Ý Nghĩa Nghiệp Vụ | Thao Tác Kích Hoạt |
 | :--- | :---: | :--- | :--- |
-| **AVAILABLE** | 🟢 Xanh lá | Bàn đang trống, sạch sẽ, sẵn sàng tiếp nhận khách mới. | Nhân viên xác nhận dọn xong (`POST /tables/:id/clean`). |
-| **RESERVED** | 🟡 Vàng cam | Bàn đã có khách đặt trước sắp đến trong vòng 60 phút hoặc đơn đã cọc. | Quản lý duyệt phiếu đặt bàn (`PATCH /reservations/:id/confirm`). |
-| **OCCUPIED** | 🔴 Đỏ | Bàn đang có khách ngồi ăn; đang phục vụ các món trong phiên. | Bồi bàn mở bàn trên smartphone (`POST /orders/open`). |
-| **DIRTY** | ⚫ Xám | Khách đã thanh toán rời đi; bàn cần được dọn dẹp vệ sinh. | Thu ngân chốt bill thành công (`POST /invoices/checkout`). |
+| **AVAILABLE** | 🟢 Xanh lá | Bàn đang trống, sạch sẽ, sẵn sàng đón khách. | Nhân viên chạm nút "Đã dọn xong" (`POST /api/v1/tables/:id/clean`). |
+| **RESERVED** | 🟡 Vàng cam | Bàn đã được AI phân bổ cho khách đặt trước sắp tới trong 60 phút. | Thuật toán AI phân bổ bàn (`PATCH /api/v1/reservations/:id/allocate`). |
+| **OCCUPIED** | 🔴 Đỏ | Bàn đang có khách ngồi ăn; phiên gọi món đang mở và bảo mật bằng OTP. | Khách quét mã QR & nhập đúng Host OTP (`POST /api/v1/sessions/verify-otp`). |
+| **DIRTY** | ⚫ Xám | Khách đã thanh toán xong qua QR; bàn cần được nhân viên vệ sinh. | Webhook ngân hàng báo thanh toán thành công (`POST /api/v1/payments/webhook`). |
 
 ---
 
-## 3. Vòng Đời Phiếu Đặt Bàn (Reservation Lifecycle)
+## 3. Máy Trạng Thái Của Món Ăn (Order Item State Machine)
+
+Vòng đời của từng món ăn trong phiên được kiểm soát nghiêm ngặt để phân định rõ quyền hạn hủy món:
 
 ```mermaid
 stateDiagram-v2
-    [*] --> PENDING: Khách gửi phiếu đặt bàn qua Web Portal
+    [*] --> PENDING: Khách chốt Giỏ Hàng Nhóm & Gửi Bếp
+
+    PENDING --> COOKING: Đầu bếp tại trạm KDS chạm 1 lần xác nhận nấu
+    PENDING --> CANCELLED: Khách hàng TỰ BẤM HỦY trên Web App (Trừ bill tức thì)
+
+    COOKING --> READY: Đầu bếp chạm lần 2 xác nhận nấu xong
+    COOKING --> CANCELLED: Nhân viên phục vụ xác nhận can thiệp hủy (Kèm lý do bắt buộc)
+
+    READY --> SERVED: Nhân viên bưng đĩa món ra bàn cho khách
     
-    PENDING --> CONFIRMED: Quản lý duyệt chỗ & gán bàn chính thức
-    PENDING --> CANCELLED: Khách hủy trước hạn hoặc không nộp tiền cọc
-    
-    CONFIRMED --> SEATED: Khách đến nhà hàng, phục vụ mở bàn phục vụ
-    CONFIRMED --> CANCELLED: Khách hủy lịch đặt (Áp dụng chính sách hoàn cọc)
-    
-    SEATED --> COMPLETED: Khách dùng bữa xong và hoàn tất thanh toán hóa đơn
-    COMPLETED --> [*]
-    CANCELLED --> [*]
+    SERVED --> [*]: Hoàn tất món ăn
 ```
+
+* **Quy tắc phân quyền hủy:**
+  1. Ở trạng thái `PENDING`: Hệ thống cho phép **Khách hàng tự do hủy 100%**. Trigger CSDL tự động ghi nhận `actor_type: 'GUEST'`.
+  2. Ở trạng thái `COOKING`: Nút tự hủy trên Web App bị **khóa cứng**. Khách phải bấm chuông gọi nhân viên sàn. Nhân viên ra bếp kiểm tra, nếu bếp đồng ý dừng nấu thì nhân viên mới được quyền bấm hủy trên Staff App kèm lý do. Trigger CSDL ghi nhận `actor_type: 'STAFF'`.
+  3. Ở trạng thái `READY` hoặc `SERVED`: Món ăn **không thể hủy**.
 
 ---
 
-## 4. Vòng Đời Món Ăn Trong Phiếu Gọi (Order Item Lifecycle)
+## 4. Máy Trạng Thái Của Phiếu Đặt Bàn (Reservation State Machine)
 
 ```mermaid
 stateDiagram-v2
-    [*] --> WAITING: Bồi bàn gọi món trên điện thoại, bắn order xuống bếp
+    [*] --> PENDING: Khách gửi form đặt bàn trực tuyến
+
+    PENDING --> PENDING_ALLOCATION: Hoàn tất cọc VietQR (Nếu nhóm >=6 hoặc VIP)
+    PENDING --> CANCELLED: Khách tự hủy trước 24h hoặc quá 30 phút không nộp cọc
+
+    PENDING_ALLOCATION --> CONFIRMED: AI Table Allocation Engine gán mã bàn & sinh Host OTP
     
-    WAITING --> COOKING: Bếp trưởng xác nhận tiếp nhận chế biến
-    WAITING --> CANCELLED: Bồi bàn bấm HỦY MÓN nhanh khi khách đổi ý
-    
-    COOKING --> SERVED: Bếp nấu xong, nhân viên bưng món ra bàn
-    SERVED --> [*]: Hoàn tất món
-    CANCELLED --> [*]: Database Trigger tự động ghi nhật ký kiểm toán
+    CONFIRMED --> SEATED: Khách đến quán, quét QR bàn và nhập đúng Host OTP
+    CONFIRMED --> NO_SHOW: Quá giờ hẹn 20 phút không check-in (Tự động phạt cọc & nhả bàn)
+
+    SEATED --> COMPLETED: Khách hoàn tất thanh toán tại bàn (Pay-at-table)
 ```
-
-> ⚠️ **Quy tắc vàng chống gian lận:** Khi một món ăn chuyển sang trạng thái `CANCELLED`, hệ thống **bắt buộc** phải có `cancel_reason` và ID nhân viên thực hiện (`cancelled_by`). PostgreSQL Trigger sẽ tự động chèn bản ghi vào bảng `audit_logs` trước khi commit giao dịch.
-
----
-
-## 5. Quy Tắc Tính Tiền & Đối Soát Cọc (Billing & Calculation Formula)
-
-Số tiền thanh toán cuối cùng trên hóa đơn (`invoices.final_amount`) được tính toán theo công thức chuẩn:
-
-$$\text{Final Amount} = \text{Subtotal} + \text{VIP Surcharge} - \text{Deposit Deducted} - \text{Discount} + \text{VAT}$$
-
-Trong đó:
-* **Subtotal (Tổng tiền món):** $\sum (\text{quantity} \times \text{price})$ của toàn bộ các món có trạng thái `SERVED` hoặc `COOKING`. Các món `CANCELLED` hoàn toàn không tính tiền.
-* **VIP Surcharge (Phụ thu VIP):** $\text{Subtotal} \times \text{surcharge\_rate}$ nếu bàn thuộc phòng VIP.
-* **Deposit Deducted (Khấu trừ cọc):** Trừ $100\%$ số tiền cọc khách đã thanh toán trước đó (lưu trong `reservations.deposit_amount`).
-* **VAT (Thuế GTGT):** Tính $8\%$ trên tổng giá trị sau khi đã trừ cọc và chiết khấu.
-
----
-
-> 🔗 *Xem chi tiết toàn bộ kịch bản DDL và mã DBML tại [DATABASE.md](./DATABASE.md).*

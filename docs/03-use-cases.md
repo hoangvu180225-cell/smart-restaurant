@@ -1,68 +1,140 @@
 # 03 — Đặc Tả Ca Sử Dụng (Use Cases Specification)
 
-> **Dự án:** SmartRestaurant — Hệ Thống Quản Lý Đặt Bàn & POS Gọi Món Di Động  
-> **Phiên bản:** 1.0.0 — Production Readiness  
-> **Tài liệu:** Danh Mục 18 Ca Sử Dụng & Sơ Đồ Use Case Toàn Diện  
+> **Dự án:** SmartRestaurant — Hệ Thống Tự Động Hóa Vận Hành Đặt Bàn AI, QR Self-Ordering & POS Di Động  
+> **Phiên bản:** 2.0.0 — Full Automation & AI-Driven Architecture  
+> **Tài liệu:** Danh Mục 21 Ca Sử Dụng & Sơ Đồ Use Case Toàn Diện  
 
 ---
 
 ## 1. Danh Mục Tác Nhân Hệ Thống (Actors)
 
-1. **Khách Hàng (Customer):** Thực khách vãng lai hoặc hội viên có tài khoản, thực hiện xem menu và gửi đơn đặt bàn.
-2. **Nhân Viên Phục Vụ (Waiter):** Sử dụng smartphone để mở bàn, gọi món tại bàn, hủy món nhanh có lý do.
-3. **Quản Lý Nhà Hàng (Manager):** Giám sát sơ đồ bàn 2D, điều phối đơn đặt chỗ `PENDING`, ghép bàn, xem dashboard KPI và nhật ký kiểm toán.
-4. **Thu Ngân (Cashier):** Lập bảng kê tạm tính (Pre-bill), cấn trừ cọc, chốt thanh toán và in hóa đơn nhiệt.
-5. **Quản Trị Viên (Admin):** Quản trị tài khoản nhân viên, phân quyền RBAC, cấu hình bảng giá và quy tắc cọc.
+1. **Khách Hàng (Customer / Guest):** Thực khách vãng lai hoặc hội viên; tương tác với Chatbot AI, đặt chỗ, quét QR tại bàn, tham gia giỏ hàng nhóm và tự thanh toán.
+2. **Chủ Bàn (Host Customer):** Người đại diện đặt bàn, nắm giữ mã **Host OTP**, có đặc quyền chốt đơn từ Giỏ hàng nhóm và bấm thanh toán hóa đơn.
+3. **Đầu Bếp (Kitchen / Bar Chef):** Sử dụng màn hình KDS tại các trạm để nhận món, chuyển trạng thái `COOKING` (khóa tự hủy) và `READY` (báo ra món).
+4. **Nhân Viên Phục Vụ (Staff Concierge):** Sử dụng smartphone để nhận chuông gọi phục vụ, hỗ trợ khách lớn tuổi, can thiệp hủy món đang nấu và xác nhận dọn xong bàn `DIRTY`.
+5. **Quản Lý Nhà Hàng (Manager):** Giám sát sơ đồ bàn 2D thời gian thực, xem dashboard KPI, đối soát audit logs và can thiệp điều chuyển bàn ngoại lệ.
+6. **Quản Trị Viên (Admin):** Quản trị tài khoản nhân sự, phân quyền RBAC, cập nhật menu và cấu hình tham số AI / quy tắc cọc.
+7. **Hệ Thống Tự Động (AI & Automated Services):** AI Chatbot tư vấn, AI Table Allocator (Tối ưu xếp chỗ), Auto-Release Worker (Tự động phạt cọc và nhả bàn khi no-show), Database Triggers.
 
 ---
 
-## 2. Bảng Danh Mục 18 Ca Sử Dụng (Use Case Catalog)
+## 2. Bảng Danh Mục 21 Ca Sử Dụng (Use Case Catalog)
 
 | Mã UC | Tên Ca Sử Dụng | Miền Chức Năng | Tác Nhân Chính | Điều Kiện Tiên Quyết | Kết Quả Đạt Được |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **UC01** | Đăng nhập & Xác thực phiên | Xác thực & Quyền hạn | Tất cả tác nhân | Đã có tài khoản hợp lệ | Nhận JWT Token và thông tin vai trò RBAC |
-| **UC02** | Đăng xuất & Kết thúc phiên | Xác thực & Quyền hạn | Tất cả tác nhân | Đang trong phiên làm việc | Hủy token, xóa dữ liệu nhạy cảm ở client |
-| **UC03** | Xem Sơ đồ bàn & Trạng thái sàn | Sơ đồ Mặt bằng 2D | Mọi tác nhân | Hệ thống đang hoạt động | Xem trực quan 4 trạng thái màu (`AVAILABLE`, `RESERVED`, `OCCUPIED`, `DIRTY`) |
-| **UC04** | Gửi yêu cầu đặt bàn (Booking) | Đặt bàn Trực tuyến | Khách hàng, Quản lý | Chọn được ngày giờ & số khách | Xuất phiếu đặt bàn sinh mã `BK-xxxx` trạng thái `PENDING` |
-| **UC05** | Duyệt & Gán bàn cho đơn đặt | Điều phối Đặt bàn | Quản lý nhà hàng | Có đơn ở trạng thái `PENDING` | Gán bàn chính thức, chuyển đơn sang `CONFIRMED`, bàn chuyển `RESERVED` |
-| **UC06** | Mở bàn & Gọi món tại chỗ | POS Phục vụ Di động | Nhân viên phục vụ | Bàn đang ở trạng thái `AVAILABLE` | Mở phiên order (`OCCUPIED`), bắn danh sách món xuống bếp |
-| **UC07** | Điều chuyển bàn & Gộp bàn ăn | POS Phục vụ Di động | Quản lý, Admin | Bàn đang ở trạng thái `OCCUPIED` | Chuyển toàn bộ món sang bàn mới an toàn |
-| **UC08** | Hủy món ăn kèm lý do bắt buộc | POS Phục vụ Di động | **Bất kỳ nhân viên nào** | Món đang ở trạng thái `WAITING` | Hủy món tức thì; Trigger CSDL tự động ghi nhật ký vào `audit_logs` |
-| **UC09** | Lập Bảng kê xem trước (Pre-bill)| Hóa đơn & Thu ngân | Thu ngân, Khách hàng | Bàn đang có đơn `OCCUPIED` | Hiển thị chi tiết tiền món, phụ thu VIP, trừ 100% tiền cọc, tính 8% VAT |
-| **UC10** | Chốt thanh toán & In hóa đơn | Hóa đơn & Thu ngân | Thu ngân | Đã xác nhận Pre-bill | Đóng đơn `PAID`, in hóa đơn nhiệt, bàn chuyển `DIRTY` chờ dọn |
-| **UC11** | Xác nhận dọn dẹp bàn hoàn tất | Sơ đồ Mặt bằng 2D | Phục vụ, Thu ngân | Bàn đang ở trạng thái `DIRTY` | Chuyển bàn sang `AVAILABLE` sẵn sàng đón lượt khách tiếp theo |
-| **UC12** | Quản lý Thực đơn & Trạng thái | Quản lý Menu | Quản lý, Admin | Đăng nhập quyền Quản lý | Thêm/sửa món, bật/tắt hết hàng tức thì, soft-delete món cũ |
-| **UC13** | Cấu hình Phụ thu VIP & Mức cọc | Bảng giá & Chính sách | Quản lý, Admin | Đăng nhập quyền Admin | Thiết lập tỷ lệ phụ thu phòng VIP và ngưỡng khách cần cọc |
-| **UC14** | Xem Dashboard Doanh thu ca | Báo cáo & Điều hành | Quản lý, Admin | Đăng nhập quyền Quản lý | Theo dõi doanh thu ngày/tuần/tháng kèm biểu đồ cột và biểu đồ tròn phòng |
-| **UC15** | Xem Bảng xếp hạng món bán chạy | Báo cáo & Phân tích | Quản lý, Admin | Đăng nhập quyền Quản lý | Thống kê số lượng đĩa bán ra giúp bếp chuẩn bị nguyên liệu |
-| **UC16** | Tự động ghi nhật ký kiểm toán | Kiểm toán Tự động | Database Trigger | Xảy ra sự kiện nhạy cảm | Ghi vết bất biến: ID người làm, thời gian, dữ liệu trước/sau và lý do |
-| **UC17** | Tra cứu Nhật ký kiểm toán | Giám sát Chống gian lận | Quản lý, Admin | Đăng nhập quyền Quản lý | Bộ lọc tra cứu vết hủy món, chuyển bàn, chỉnh sửa bill |
-| **UC18** | Quản trị Người dùng & Hội viên | Quản trị Hệ thống | Quản trị viên (Admin) | Đăng nhập quyền Admin | Quản lý vòng đời tài khoản, cấp phát vai trò RBAC |
+| **UC01** | Trò chuyện với Chatbot AI tư vấn | Đặt bàn & AI | Khách hàng | Truy cập Cổng đặt bàn 1-Page | Nhận gợi ý set menu, khung giờ vắng và vị trí phòng phù hợp |
+| **UC02** | Đặt bàn & Đăng ký vị trí ưu tiên mềm | Đặt bàn & AI | Khách hàng | Chọn được ngày, giờ, số khách | Sinh phiếu đặt bàn `BK-xxxx` trạng thái `PENDING` |
+| **UC03** | Thanh toán cọc tự động qua VietQR | Đặt bàn & AI | Khách hàng | Đặt đoàn $\ge 6$ người hoặc phòng VIP | Quét VietQR cọc 500k, đơn chuyển sang `PENDING_ALLOCATION` |
+| **UC04** | AI Tối ưu hóa & Phân bổ bàn tự động | Bộ não AI | AI Allocation Engine | Đến mốc 60 phút trước giờ hẹn | Tối ưu xếp chỗ, chốt mã bàn và bắn SMS/Email kèm mã **Host OTP** |
+| **UC05** | Quét QR tại bàn & Xác thực Host OTP | Gọi món tự phục vụ | Khách hàng (Host/Member) | Đang ngồi tại bàn ăn đã xếp | Mở phiên gọi món, bảo vệ bàn khỏi người ngoài quét trộm |
+| **UC06** | Check-in tự động cho khách vãng lai | Gọi món tự phục vụ | Khách vãng lai | Bàn trống 🟢 `AVAILABLE` (trống $\ge 90$p) | Nhập SĐT, mở phiên tức thì và sinh OTP ngay trên web |
+| **UC07** | Tham gia Giỏ hàng nhóm thời gian thực | Gọi món tự phục vụ | Tất cả khách cùng bàn | Đã nhập đúng Host OTP | Cùng chọn món và đồng bộ giỏ hàng nhóm qua WebSocket |
+| **UC08** | Host chốt đơn & Bắn món xuống bếp | Gọi món tự phục vụ | Chủ bàn (Host) | Giỏ hàng nhóm có món ăn | Món được đẩy thẳng xuống màn hình KDS trạm bếp |
+| **UC09** | KDS Bếp cập nhật trạng thái món | Màn hình Bếp (KDS) | Đầu bếp (Chef) | Có thẻ món mới trên màn hình KDS | Chạm 1: `COOKING` (khóa nút tự hủy); Chạm 2: `READY` (báo ra món) |
+| **UC10** | Khách tự hủy món đang chờ (PENDING) | Gọi món tự phục vụ | Khách hàng | Món ăn đang ở trạng thái `PENDING` | Món bị hủy ngay, tự trừ tiền bill, Trigger CSDL ghi log kiểm toán |
+| **UC11** | Yêu cầu nhân viên hủy món đang nấu | Hỗ trợ & Ngoại lệ | Khách hàng, Bồi bàn | Món ăn đã chuyển sang `COOKING` | Bồi bàn xác minh với bếp, nhập lý do hủy qua Staff App |
+| **UC12** | Bấm chuông gọi phục vụ thông minh | Hỗ trợ & Ngoại lệ | Khách hàng | Đang trong phiên gọi món tại bàn | Staff App của nhân viên rung chuông kèm phân loại yêu cầu cụ thể |
+| **UC13** | Tự thanh toán tại bàn (Pay-at-Table) | Hóa đơn & Thu ngân | Khách hàng (Host) | Khách dùng bữa xong | Xem Pre-bill (trừ 100% cọc), quét VietQR trả tiền, nhận e-bill |
+| **UC14** | Tự động chuyển bàn ⚫ DIRTY & Dọn dẹp | Sơ đồ sàn 2D | Hệ thống, Nhân viên phục vụ | Thanh toán tại bàn thành công | Bàn chuyển ⚫ `DIRTY`; Nhân viên dọn xong bấm nút chuyển về 🟢 `AVAILABLE` |
+| **UC15** | Tự động xử lý No-show & Nhả bàn | Bộ não AI / Cron | Auto-Release Worker | Khách trễ hẹn 15-20 phút | Tự động phạt cọc, hủy đơn `NO_SHOW`, nhả bàn về 🟢 `AVAILABLE` |
+| **UC16** | Giám sát Sơ đồ bàn 2D thời gian thực | Sơ đồ sàn 2D | Quản lý, Nhân viên | Hệ thống đang chạy | Theo dõi trực quan 4 trạng thái màu và số tiền tạm tính của bàn |
+| **UC17** | Quản lý Thực đơn & Bật/Tắt hết hàng | Quản lý Menu | Đầu bếp, Quản lý, Admin | Đăng nhập tài khoản nghiệp vụ | Cập nhật giá, tắt món hết nguyên liệu tức thì trên web khách |
+| **UC18** | Xem Dashboard KPI & Tỷ lệ Tự động hóa | Báo cáo & Điều hành | Quản lý, Admin | Tài khoản có quyền Quản lý | Xem doanh thu, tỷ lệ khách tự quét QR order, thời gian bếp ra món |
+| **UC19** | Tự động ghi nhật ký kiểm toán bất biến | Kiểm toán Tự động | Database Trigger | Mọi hành vi nhạy cảm phát sinh | Trigger PostgreSQL ghi nhận log bất biến (Actor: `GUEST`/`STAFF`) |
+| **UC20** | Tra cứu & Đối soát vết kiểm toán | Giám sát An toàn | Quản lý, Admin | Tài khoản có quyền Quản lý | Tra cứu lịch sử hủy món, hoàn tiền, điều chuyển bàn |
+| **UC21** | Quản trị Người dùng & Cấu hình AI | Quản trị Hệ thống | Quản trị viên (Admin) | Tài khoản có quyền Admin | Phân quyền RBAC, cấu hình mức cọc và tham số thuật toán AI |
 
 ---
 
-## 3. Sơ Đồ Ca Sử Dụng (Use Case Diagram)
+## 3. Sơ Đồ Ca Sử Dụng Tổng Thể (Use Case Diagram)
 
 ```mermaid
 flowchart TB
-    subgraph actors["Tác Nhân (Actors)"]
+    subgraph actors["Tác Nhân Hệ Thống (Actors)"]
         direction LR
-        admin(["Quản trị viên (Admin)"])
-        manager(["Quản lý / Thu ngân"])
-        waiter(["Nhân viên phục vụ"])
-        customer(["Khách hàng"])
+        customer(["Khách Hàng / Host"])
+        chef(["Đầu Bếp (KDS)"])
+        staff(["Nhân Viên Phục Vụ"])
+        manager(["Quản Lý / Admin"])
+        aiSystem(["Hệ Thống AI / Cron"])
     end
 
-    subgraph system["SmartRestaurant — Ranh Giới Hệ Thống"]
-        direction LR
-        adminCases["<b>Quản trị viên (Admin)</b><br/><br/>UC01 Đăng nhập · UC02 Đăng xuất<br/>UC03 Xem sơ đồ bàn realtime<br/>UC12–13 Quản lý Menu, Phụ thu VIP & Quy tắc cọc<br/>UC14–15 Xem Dashboard KPI & Top món<br/>UC16–17 Giám sát nhật ký kiểm toán<br/>UC18 Quản trị tài khoản & RBAC"]
-        managerCases["<b>Quản lý Nhà hàng / Thu ngân</b><br/><br/>UC01 Đăng nhập · UC02 Đăng xuất<br/>UC03 Xem sơ đồ bàn realtime<br/>UC05 Duyệt & Gán bàn cho đơn đặt PENDING<br/>UC07 Chuyển bàn / Gộp bàn<br/>UC09 Lập bảng kê Pre-bill (Trừ cọc)<br/>UC10 Chốt thanh toán & In hóa đơn<br/>UC14–15 Xem Dashboard ca trực<br/>UC17 Tra cứu nhật ký kiểm toán"]
-        waiterCases["<b>Nhân viên phục vụ (Mobile POS)</b><br/><br/>UC01 Đăng nhập · UC02 Đăng xuất<br/>UC03 Xem trạng thái bàn trên sàn<br/>UC06 Mở bàn & Gọi món qua smartphone<br/><b>UC08 Hủy món ăn nhanh (Kèm lý do)</b><br/>UC11 Xác nhận đã dọn xong bàn"]
-        customerCases["<b>Khách hàng (Vãng lai / Hội viên)</b><br/><br/>UC01 Đăng nhập hội viên (Tùy chọn)<br/>UC03 Xem bàn trống trên mặt bằng<br/>UC04 Đặt bàn 1-page & Thanh toán cọc<br/>UC09 Xem bảng kê tạm tính của bàn"]
+    subgraph system["SmartRestaurant 2.0 — Hệ Thống Tự Động Hóa Vận Hành"]
+        direction TB
+
+        subgraph bookingZone["1. Đặt Bàn & AI Xếp Chỗ"]
+            direction LR
+            uc01["UC01: Chatbot AI tư vấn"]
+            uc02["UC02: Đặt bàn & Vị trí ưu tiên"]
+            uc03["UC03: Quét VietQR cọc tự động"]
+            uc04["UC04: AI Tối ưu & Xếp bàn tự động"]
+            uc15["UC15: Auto-Release khi No-Show"]
+        end
+
+        subgraph diningZone["2. Gọi Món & Trải Nghiệm Tại Bàn"]
+            direction LR
+            uc05["UC05: Quét QR & Nhập Host OTP"]
+            uc06["UC06: Khách vãng lai Check-in nhanh"]
+            uc07["UC07: Giỏ hàng nhóm thời gian thực"]
+            uc08["UC08: Host chốt đơn gửi bếp"]
+            uc10["UC10: Khách tự hủy món PENDING"]
+            uc11["UC11: Gọi hỗ trợ hủy món COOKING"]
+            uc12["UC12: Chuông gọi phục vụ thông minh"]
+            uc13["UC13: Pay-at-table (Trừ 100% cọc)"]
+        end
+
+        subgraph opsZone["3. Điều Hành Bếp, Sàn & Quản Trị"]
+            direction LR
+            uc09["UC09: KDS Bếp 1-chạm (COOKING/READY)"]
+            uc14["UC14: Dọn bàn (DIRTY ➔ AVAILABLE)"]
+            uc16["UC16: Giám sát sơ đồ bàn 2D"]
+            uc17["UC17: Bật/Tắt hết món tức thì"]
+            uc18["UC18: Dashboard KPI & Tự động hóa"]
+            uc19["UC19: Trigger CSDL lưu Audit Log"]
+            uc20["UC20: Tra cứu kiểm toán nhạy cảm"]
+            uc21["UC21: Phân quyền & Cấu hình AI"]
+        end
     end
 
-    admin --> adminCases
-    manager --> managerCases
-    waiter --> waiterCases
-    customer --> customerCases
+    customer --> uc01
+    customer --> uc02
+    customer --> uc03
+    customer --> uc05
+    customer --> uc06
+    customer --> uc07
+    customer --> uc08
+    customer --> uc10
+    customer --> uc11
+    customer --> uc12
+    customer --> uc13
+
+    aiSystem --> uc04
+    aiSystem --> uc15
+    aiSystem --> uc19
+
+    chef --> uc09
+    chef --> uc17
+
+    staff --> uc11
+    staff --> uc12
+    staff --> uc14
+    staff --> uc16
+
+    manager --> uc16
+    manager --> uc17
+    manager --> uc18
+    manager --> uc20
+    manager --> uc21
+
+    classDef customerStyle fill:#e3f2fd,stroke:#1565c0,stroke-width:2px;
+    classDef chefStyle fill:#fff3e0,stroke:#e65100,stroke-width:2px;
+    classDef staffStyle fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
+    classDef managerStyle fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px;
+    classDef aiStyle fill:#fce4ec,stroke:#c2185b,stroke-width:2px;
+
+    class customer customerStyle;
+    class chef chefStyle;
+    class staff staffStyle;
+    class manager managerStyle;
+    class aiSystem aiStyle;
 ```
